@@ -31,7 +31,10 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o grpc ./cmd/grpc
 
 # Build the database migration tool with PostgreSQL support:
 # This is used by the init container to apply migrations before app startup.
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags 'postgres' -o migrate github.com/golang-migrate/migrate/v4/cmd/migrate
+# Note: go install is used because the migrate module is not in go.mod.
+# It automatically downloads and compiles the tool in the current directory.
+RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest && \
+    cp /go/bin/migrate ./migrate
 
 # =============================================================================
 # STAGE 2: Runtime (gRPC server)
