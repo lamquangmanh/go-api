@@ -41,4 +41,5 @@ jobs:
       environment: dev
       gitops_path: "microk8s/microservice/apps/user-backend/overlays/dev"
       repository_path: "quangmanhlam/user-backend-dev"
-    secrets: inherit
+    secrets:
+      GIT_PAT: ${{ secrets.GIT_PAT }}
