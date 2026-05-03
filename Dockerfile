@@ -40,8 +40,9 @@ RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate
 # STAGE 2: Runtime (gRPC server)
 # Use a distroless base image for a minimal runtime without shell or package managers.
 # This reduces image size and surface area for potential vulnerabilities.
+# Upgraded to debian12 to ensure glibc compatibility with migrate binary.
 # =============================================================================
-FROM gcr.io/distroless/base-debian11
+FROM gcr.io/distroless/base-debian12
 
 # Set working directory for the runtime image.
 WORKDIR /app
