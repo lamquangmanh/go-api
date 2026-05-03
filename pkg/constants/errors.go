@@ -12,7 +12,7 @@ type ErrorDef struct {
 	Code     int32
 	GrpcCode codes.Code
 	Message  string
-	Extra		any // Optional field for additional context
+	Extra    any // Optional field for additional context
 }
 
 // Status returns the error as a gRPC status error.
@@ -48,7 +48,6 @@ var (
 
 	// ------------
 
-
 	// Errors of User Service
 	ErrUsernameRequired      = ErrorDef{Code: 1, GrpcCode: codes.InvalidArgument, Message: "username is required"}
 	ErrUsernameInvalid       = ErrorDef{Code: 2, GrpcCode: codes.InvalidArgument, Message: "username must be between 3 and 50 characters and contain only letters, numbers, '_', '.', '-'"}
@@ -72,19 +71,18 @@ var (
 	ErrListUsersInternal     = ErrorDef{Code: 20, GrpcCode: codes.Internal, Message: "list users: %v"}
 
 	// Errors of Role Service
-	ErrRoleIDRequired         = ErrorDef{Code: 21, GrpcCode: codes.InvalidArgument, Message: "id is required"}
-	ErrInvalidRoleIDFormat    = ErrorDef{Code: 22, GrpcCode: codes.InvalidArgument, Message: "invalid role id format"}
-	ErrRoleNameRequired       = ErrorDef{Code: 23, GrpcCode: codes.InvalidArgument, Message: "name is required"}
-	ErrRoleNameInvalid        = ErrorDef{Code: 24, GrpcCode: codes.InvalidArgument, Message: "name must be between 2 and 100 characters"}
-	ErrRoleIDsNotExist        = ErrorDef{Code: 25, GrpcCode: codes.InvalidArgument, Message: "one or more role_ids do not exist"}
-	ErrRoleNameAlreadyExists  = ErrorDef{Code: 26, GrpcCode: codes.AlreadyExists, Message: "role name already exists"}
-	ErrRoleNotFound           = ErrorDef{Code: 27, GrpcCode: codes.NotFound, Message: "role %s not found"}
-	ErrCreateRoleInternal     = ErrorDef{Code: 28, GrpcCode: codes.Internal, Message: "create role: %v"}
-	ErrGetRoleInternal        = ErrorDef{Code: 29, GrpcCode: codes.Internal, Message: "get role: %v"}
-	ErrUpdateRoleInternal     = ErrorDef{Code: 30, GrpcCode: codes.Internal, Message: "update role: %v"}
-	ErrDeleteRoleInternal     = ErrorDef{Code: 31, GrpcCode: codes.Internal, Message: "delete role: %v"}
-	ErrListRolesInternal      = ErrorDef{Code: 32, GrpcCode: codes.Internal, Message: "list roles: %v"}
-
+	ErrRoleIDRequired        = ErrorDef{Code: 21, GrpcCode: codes.InvalidArgument, Message: "id is required"}
+	ErrInvalidRoleIDFormat   = ErrorDef{Code: 22, GrpcCode: codes.InvalidArgument, Message: "invalid role id format"}
+	ErrRoleNameRequired      = ErrorDef{Code: 23, GrpcCode: codes.InvalidArgument, Message: "name is required"}
+	ErrRoleNameInvalid       = ErrorDef{Code: 24, GrpcCode: codes.InvalidArgument, Message: "name must be between 2 and 100 characters"}
+	ErrRoleIDsNotExist       = ErrorDef{Code: 25, GrpcCode: codes.InvalidArgument, Message: "one or more role_ids do not exist"}
+	ErrRoleNameAlreadyExists = ErrorDef{Code: 26, GrpcCode: codes.AlreadyExists, Message: "role name already exists"}
+	ErrRoleNotFound          = ErrorDef{Code: 27, GrpcCode: codes.NotFound, Message: "role %s not found"}
+	ErrCreateRoleInternal    = ErrorDef{Code: 28, GrpcCode: codes.Internal, Message: "create role: %v"}
+	ErrGetRoleInternal       = ErrorDef{Code: 29, GrpcCode: codes.Internal, Message: "get role: %v"}
+	ErrUpdateRoleInternal    = ErrorDef{Code: 30, GrpcCode: codes.Internal, Message: "update role: %v"}
+	ErrDeleteRoleInternal    = ErrorDef{Code: 31, GrpcCode: codes.Internal, Message: "delete role: %v"}
+	ErrListRolesInternal     = ErrorDef{Code: 32, GrpcCode: codes.Internal, Message: "list roles: %v"}
 
 	// Errors of Module Service
 	ErrModuleIDRequired          = ErrorDef{Code: 45, GrpcCode: codes.InvalidArgument, Message: "id is required"}
@@ -147,9 +145,9 @@ var (
 	ErrPasswordRequired        = ErrorDef{Code: 94, GrpcCode: codes.InvalidArgument, Message: "password is required"}
 
 	// Errors of gRPC Handler payload checks
-	ErrUserPayloadRequired     = ErrorDef{Code: 95, GrpcCode: codes.InvalidArgument, Message: "user is required"}
-	ErrRolePayloadRequired     = ErrorDef{Code: 96, GrpcCode: codes.InvalidArgument, Message: "role is required"}
-	
+	ErrUserPayloadRequired = ErrorDef{Code: 95, GrpcCode: codes.InvalidArgument, Message: "user is required"}
+	ErrRolePayloadRequired = ErrorDef{Code: 96, GrpcCode: codes.InvalidArgument, Message: "role is required"}
+
 	ErrModulePayloadRequired   = ErrorDef{Code: 98, GrpcCode: codes.InvalidArgument, Message: "module is required"}
 	ErrResourcePayloadRequired = ErrorDef{Code: 99, GrpcCode: codes.InvalidArgument, Message: "resource is required"}
 	ErrActionPayloadRequired   = ErrorDef{Code: 100, GrpcCode: codes.InvalidArgument, Message: "action is required"}
@@ -274,4 +272,3 @@ var (
 // 	ErrResourcePayloadRequired = ErrorDef{Code: 99, GrpcCode: codes.InvalidArgument, Message: "resource is required"}
 // 	ErrActionPayloadRequired   = ErrorDef{Code: 100, GrpcCode: codes.InvalidArgument, Message: "action is required"}
 // )
-

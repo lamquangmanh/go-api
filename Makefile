@@ -3,7 +3,7 @@ CONFIG ?= configs/config.yml
 GO_BIN := $(shell if [ -n "$$(go env GOBIN)" ]; then echo "$$(go env GOBIN)"; else echo "$$(go env GOPATH)/bin"; fi)
 AIR_BIN := $(GO_BIN)/air
 
-.PHONY: run dev dev-install build docker sqlc migrate migrate-tool-install migrate-up migrate-down migrate-status proto proto-tools tidy
+.PHONY: run dev dev-install build docker sqlc migrate migrate-tool-install migrate-up migrate-down migrate-status proto proto-tools tidy fmt fmt-check
 
 run:
 	GOAPI_CONFIG=$(CONFIG) go run ./cmd/grpc
@@ -27,6 +27,28 @@ dev-install:
 
 build:
 	go build -o bin/grpc ./cmd/grpc
+
+# Format all Go code files using gofmt with -w flag (write formatted code back to files)
+# This ensures consistent code formatting across the entire project
+# Usage: make fmt
+fmt:
+	@echo "Formatting all Go code files..."
+	@gofmt -l -w ./cmd ./internal ./pkg
+	@echo "✓ All Go files formatted successfully"
+
+# Check Go code formatting without making changes (useful for CI/CD validation)
+# This verifies that all Go files follow the standard gofmt style
+# Fails if any files need formatting - typically used in GitHub Actions workflows
+# Usage: make fmt-check
+fmt-check:
+	@echo "Checking Go code formatting..."
+	@if [ -n "$$(gofmt -l ./cmd ./internal ./pkg)" ]; then \
+		echo "❌ The following files need formatting:"; \
+		gofmt -l ./cmd ./internal ./pkg; \
+		echo "Run 'make fmt' to auto-format or use 'gofmt -w <file>' manually"; \
+		exit 1; \
+	fi
+	@echo "✓ All Go files are properly formatted"
 
 docker:
 	docker build -t $(APP_NAME):latest .

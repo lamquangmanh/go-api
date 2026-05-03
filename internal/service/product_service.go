@@ -70,7 +70,7 @@ func (s *ProductService) GetProduct(ctx context.Context, id string) (*repository
 		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrProductIDRequired, map[string]any{"product_id": "a non-empty string"})}
 		// return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrProductIDRequired)}
 	}
-	
+
 	pid, err := uuid.Parse(id)
 	if err != nil {
 		// return nil, constants.ErrInvalidProductIDFormat.Status()

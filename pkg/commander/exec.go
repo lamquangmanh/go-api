@@ -45,7 +45,7 @@ func CheckPortAvailable(port int) error {
 }
 
 func CheckDiskExists(path string) error {
-	_, err := exec.Command("lsblk", path).Output(); 
+	_, err := exec.Command("lsblk", path).Output()
 	if err != nil {
 		return fmt.Errorf("disk not found or not accessible: %s", path)
 	}
