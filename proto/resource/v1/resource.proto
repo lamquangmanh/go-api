@@ -1,0 +1,112 @@
+
+syntax = "proto3";
+import "proto/base/v1/base.proto";
+import "proto/action/v1/action.proto";
+
+package proto.resource.v1;
+
+option go_package = "go-api/pkg/api/resourcepb;resourcepb";
+
+message Resource {
+  string resource_id = 1;
+  string name = 2;
+  string module_id = 3;
+  string created_user_id = 4;
+  string updated_at = 5;
+  string updated_user_id = 6;
+  string deleted_at = 7;
+  string deleted_user_id = 8;
+  string created_at = 9;
+}
+
+message Action {
+  string name = 1;
+  string description = 2;
+  proto.action.v1.ActionRequestType request_type = 3;
+  string url = 4;
+  string method = 5;
+  optional string action_id = 6;
+}
+
+message CreateResourceData {
+  string name = 1;
+  string module_id = 2;
+  repeated Action actions = 3;
+}
+
+message UpdateResourceData {
+  string resource_id = 1;
+  string name = 2;
+  string module_id = 3;
+  repeated Action actions = 4;
+}
+
+message GetResourceRequest {
+  string resource_id = 1;
+}
+
+message GetResourcesRequest {
+  proto.base.v1.PaginationRequest pagination = 1;
+  repeated proto.base.v1.Sort sorts = 2;
+  repeated proto.base.v1.Filter filters = 3;
+}
+
+message GetResourcesResponse {
+  proto.base.v1.PaginationResponse pagination = 1;
+  repeated Resource data = 2;
+}
+
+message CreateResourceRequest {
+  CreateResourceData resource = 1;
+  string user_id = 2;
+}
+
+message UpdateResourceRequest {
+  UpdateResourceData resource = 1;
+  string user_id = 2;
+}
+
+message DeleteResourceRequest {
+  string resource_id = 1;
+  string user_id = 2;
+}
+
+message CreateSuccess {
+  Resource resource = 1;
+  repeated proto.base.v1.ErrorMessage errors = 2;
+}
+
+message GetResourceResponse {
+  Resource resource = 1;
+  repeated proto.base.v1.ErrorMessage errors = 2;
+}
+
+// ResourceService: manage resources and their actions
+// Sample GetResource request: { "resource_id": "uuid" }
+// Sample GetResource response: Resource
+service ResourceService {
+  // GetResource returns a single Resource
+  // Req example: { "resource_id": "..." }
+  // Res example: { "resource_id": "...", "name": "..." }
+  rpc GetResource (GetResourceRequest) returns (GetResourceResponse) {}
+
+  // GetResources returns paginated resources
+  // Req example: { "pagination": { "page":1, "limit":10 } }
+  // Res example: { "pagination": { "page":1, "limit":10, "totalItems":0 }, "data": [] }
+  rpc GetResources (GetResourcesRequest) returns (GetResourcesResponse) {}
+
+  // CreateResource creates a resource with actions
+  // Res example: { "resource": { "name":"res", "module_id":"uuid", "actions": [...] }, "user_id":"uuid" }
+  // Res example: CreateSuccess
+  rpc CreateResource (CreateResourceRequest) returns (CreateSuccess) {}
+
+  // UpdateResource updates resource and its actions
+  // Req example: { "resource": { "resource_id":"uuid", "name":"new" }, "user_id":"uuid" }
+  // Res example: { result: { success: true } }
+  rpc UpdateResource (UpdateResourceRequest) returns (proto.base.v1.UpdateSuccess) {}
+
+  // DeleteResource soft-deletes resource
+  // Req example: { "resource_id":"uuid", "user_id":"uuid" }
+  // Res example: { result: { success: true } }
+  rpc DeleteResource (DeleteResourceRequest) returns (proto.base.v1.DeleteSuccess) {}
+}

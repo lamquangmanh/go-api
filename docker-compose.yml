@@ -1,0 +1,122 @@
+version: "3.8"
+
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:16-alpine
+    container_name: go-api-postgres
+    environment:
+      POSTGRES_USER: go_api_user
+      POSTGRES_PASSWORD: go_api_password
+      POSTGRES_DB: go_api
+      POSTGRES_INITDB_ARGS: "-c log_statement=all -c log_duration=on"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U go_api_user -d go_api" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - go-api-network
+
+  # Application migrations (optional - for testing migrations separately)
+  # This runs migrations before the app starts
+  db-migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: go-api-migrate
+    command: >
+      sh -c " /app/migrate -path /app/db/migrations -database
+      'postgresql://go_api_user:go_api_password@postgres:5432/go_api?sslmode=disable'
+      up "
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Optional: for debugging
+      VERBOSE: 1
+    networks:
+      - go-api-network
+    profiles:
+      - with-migrations
+
+  # Go API application
+  go-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: go-api-app
+    environment:
+      GOAPI_CONFIG: /etc/config/config.yml
+      DATABASE_URL: "postgresql://go_api_user:go_api_password@postgres:5432/go_api?ss\
+        lmode=disable"
+    ports:
+      - "50051:50051" # gRPC
+      - "8080:8080" # Health check / HTTP
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # Uncomment if using db-migrate service:
+      # db-migrate:
+      #   condition: service_completed_successfully
+    volumes:
+      - ./configs/config.yml:/etc/config/config.yml:ro
+    networks:
+      - go-api-network
+    profiles:
+      - with-migrations
+    # For development without migrations service:
+    # Simply comment above and uncomment below
+
+    # PgAdmin for database inspection (optional)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: go-api-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - go-api-network
+    profiles:
+      - debug
+
+volumes:
+  postgres_data:
+
+networks:
+  go-api-network:
+    driver: bridge
+
+# Usage:
+# ======
+#
+# 1. Start database only (for manual migration testing):
+#    docker-compose up postgres
+#
+# 2. Start with migrations:
+#    docker-compose --profile with-migrations up
+#
+# 3. Start with PgAdmin for debugging:
+#    docker-compose --profile debug up
+#
+# 4. Run migrations manually while containers running:
+#    docker exec go-api-migrate /app/migrate \
+#      -path /app/db/migrations \
+#      -database 'postgresql://go_api_user:go_api_password@postgres:5432/go_api?sslmode=disable' \
+#      up
+#
+# 5. Check migration status:
+#    docker exec go-api-migrate /app/migrate \
+#      -path /app/db/migrations \
+#      -database 'postgresql://go_api_user:go_api_password@postgres:5432/go_api?sslmode=disable' \
+#      version

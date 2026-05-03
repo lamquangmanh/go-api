@@ -1,0 +1,44 @@
+name: Workflow Dev
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - dev
+  pull_request:
+    branches:
+      - dev
+
+jobs:
+  ci_process:
+    name: Run CI Process
+    uses: lamquangmanh/gitops-config/.github/workflows/go-ci.yml@main
+    with:
+      environment: dev
+      go_version: "1.25.x"
+      working_directory: "."
+      build_command: "go build -o bin/grpc ./cmd/grpc"
+      test_command: "go test ./..."
+    secrets: inherit
+
+  cd_process:
+    name: Run CD Process
+    needs: ci_process
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    uses: lamquangmanh/gitops-config/.github/workflows/go-cd.yml@main
+    with:
+      environment: dev
+      repository_path: "quangmanhlam/user-backend-dev"
+      dockerfile: "Dockerfile"
+      context: "."
+    secrets: inherit
+
+  k8s_process:
+    name: Run K8s Process
+    needs: cd_process
+    uses: lamquangmanh/gitops-config/.github/workflows/k8s.yml@main
+    with:
+      environment: dev
+      gitops_path: "microk8s/microservice/apps/user-backend/overlays/dev"
+      repository_path: "quangmanhlam/user-backend-dev"
+    secrets: inherit

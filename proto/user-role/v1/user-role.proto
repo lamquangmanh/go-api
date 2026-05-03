@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+import "proto/base/v1/base.proto";
+
+package proto.user_role.v1;
+
+option go_package = "go-api/pkg/api/userrolepb;userrolepb";
+
+message UserRole {
+  string user_role_id = 1;
+  string user_id = 2;
+  string role_id = 3;
+  string created_user_id = 4;
+  string updated_at = 5;
+  string updated_user_id = 6;
+  string deleted_at = 7;
+  string deleted_user_id = 8;
+  string created_at = 9;
+}
+
+message CreateUserRoleData {
+  string user_id = 1;
+  string role_id = 2;
+}
+
+message UpdateUserRoleData {
+  string user_id = 1;
+  string role_id = 2;
+}
+
+message GetUserRoleRequest {
+  string user_role_id = 1;
+}
+
+message GetUserRolesRequest {
+  proto.base.v1.PaginationRequest pagination = 1;
+  repeated proto.base.v1.Sort sorts = 2;
+  repeated proto.base.v1.Filter filters = 3;
+}
+
+message GetUserRolesResponse {
+  proto.base.v1.PaginationResponse pagination = 1;
+  repeated UserRole data = 2;
+}
+
+message CreateUserRoleRequest {
+  CreateUserRoleData user_role = 1;
+  string user_id = 2;
+}
+
+message UpdateUserRoleRequest {
+  UpdateUserRoleData user_role = 1;
+  string user_id = 2;
+}
+
+message DeleteUserRoleRequest {
+  string user_role_id = 1;
+  string user_id = 2;
+}
+
+message CreateSuccess {
+  UserRole user_role = 1;
+  repeated proto.base.v1.ErrorMessage errors = 2;
+}
+
+// UserRoleService: manage user role assignments
+service UserRoleService {
+  // GetUserRole returns a single user_role
+  // Req example: { "user_role_id": "uuid" }
+  rpc GetUserRole(GetUserRoleRequest) returns (UserRole) {}
+
+  // GetUserRoles returns paginated user_role list
+  // Req example: { "pagination": { "page":1, "limit":10 } }
+  rpc GetUserRoles(GetUserRolesRequest) returns (GetUserRolesRequest) {}
+
+  // CreateUserRole assigns a role to a user
+  // Req example: { "user_role": { "user_id":"uuid", "role_id":"uuid" }, "user_id":"uuid" }
+  rpc CreateUserRole(CreateUserRoleRequest) returns (CreateSuccess) {}
+
+  // UpdateUserRole updates an assignment
+  // Req example: { "user_role": { "user_id":"uuid", "role_id":"uuid" }, "user_id":"uuid" }
+  rpc UpdateUserRole(UpdateUserRoleRequest) returns (proto.base.v1.UpdateSuccess) {}
+
+  // DeleteUserRole removes assignment
+  // Req example: { "user_role_id":"uuid", "user_id":"uuid" }
+  rpc DeleteUserRole(DeleteUserRoleRequest) returns (proto.base.v1.DeleteSuccess) {}
+}

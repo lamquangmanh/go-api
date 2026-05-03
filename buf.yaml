@@ -1,0 +1,8 @@
+version: v1
+
+build:
+  roots:
+    - proto
+
+deps:
+  - buf.build/envoyproxy/protoc-gen-validate

@@ -1,0 +1,13 @@
+grpc:
+  port: 50051
+
+http:
+  port: 8080
+
+database:
+  host: localhost
+  port: 5432
+  user: postgres
+  password: postgres
+  name: go_api
+  ssl_mode: disable

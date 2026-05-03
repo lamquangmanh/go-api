@@ -1,0 +1,173 @@
+
+syntax = "proto3";
+import "proto/base/v1/base.proto";
+
+package proto.user.v1;
+
+option go_package = "go-api/pkg/api/userpb;userpb";
+
+enum UserStatus {
+  USER_STATUS_UNSPECIFIED = 0;
+  USER_STATUS_ACTIVE = 1;
+  USER_STATUS_DEACTIVATED = 2;
+  USER_STATUS_DELETED = 3;
+}
+
+// User represents a system user and related metadata.
+// Fields:
+// - user_id: unique identifier
+// - username, email, phone, avatar: profile fields
+// - status: account status (active, deactivated, deleted)
+// - created_at/created_user_id, updated_at/updated_user_id, deleted_at/deleted_user_id: audit fields
+// - role_ids: assigned role identifiers
+//
+// Example (GetUser response):
+// {
+//   "user_id": "user-1",
+//   "username": "jdoe",
+//   "email": "jdoe@example.com",
+//   "phone": "+84901234567",
+//   "status": 1,
+//   "role_ids": ["role-1"]
+// }
+message User {
+  string user_id = 1;
+  string username = 2;
+  string email = 3;
+  string phone = 4;
+  string avatar = 5;
+  UserStatus status = 6;
+  string created_at = 7;
+  string created_user_id = 8;
+  string updated_at = 9;
+  string updated_user_id = 10;
+  string deleted_at = 11;
+  string deleted_user_id = 12;
+  repeated string role_ids = 13;
+}
+
+// Payload used to create a new user.
+// Example:
+// {
+//   "username": "alice",
+//   "email": "alice@example.com",
+//   "password": "s3cret",
+//   "phone": "+84901112233",
+//   "role_ids": ["role-2"]
+// }
+message CreateUserData {
+  string username = 1;
+  string email = 2;
+  string password = 3;
+  string phone = 4;
+  string avatar = 5;
+  UserStatus status = 6;
+  repeated string role_ids = 7;
+}
+
+// Payload used to update user profile or roles.
+message UpdateUserData {
+  string username = 1;
+  string email = 2;
+  string phone = 4;
+  string avatar = 5;
+  UserStatus status = 6;
+  repeated string role_ids = 7;
+  string user_id = 8;
+}
+
+// GetUserRequest requests a single user by id.
+// Example Request: { "user_id": "user-1" }
+message GetUserRequest {
+  string user_id = 1;
+}
+
+// GetUsersRequest supports pagination, sorting and filtering.
+message GetUsersRequest {
+  proto.base.v1.PaginationRequest pagination = 1;
+  repeated proto.base.v1.Sort sorts = 2;
+  repeated proto.base.v1.Filter filters = 3;
+}
+
+// GetUsersResponse returns paginated user results.
+message GetUsersResponse {
+  proto.base.v1.PaginationResponse pagination = 1;
+  repeated User data = 2;
+}
+
+// CreateUserRequest includes the data and actor id performing creation.
+// Example Request:
+// {
+//   "user": { "username": "bob", "email": "bob@example.com", "password": "pwd" },
+//   "user_id": "admin-1"
+// }
+message CreateUserRequest {
+  CreateUserData user = 1;
+  string user_id = 2;
+}
+
+// UpdateUserRequest includes the changes and actor id.
+message UpdateUserRequest {
+  UpdateUserData user = 1;
+  string user_id = 2;
+}
+
+// DeleteUserRequest indicates which user to delete and who requested it.
+message DeleteUserRequest {
+  string user_id = 1;
+  string deleted_user_id = 2;
+}
+
+// CreateSuccess returns the created user and any validation errors.
+message CreateSuccess {
+  User user = 1;
+  repeated proto.base.v1.ErrorMessage errors = 2;
+}
+
+message GetUserResponse {
+  User user = 1;
+  repeated proto.base.v1.ErrorMessage errors = 2;
+}
+
+// ChangePasswordRequest contains user id and new password.
+// Example Request: { "user_id": "user-1", "password": "newpass" }
+message ChangePasswordRequest {
+  string user_id = 1;
+  string password = 2;
+}
+
+// UserService provides CRUD operations for users and password management.
+service UserService {
+  // GetUser returns a single user by id.
+  // Request: { "user_id": "user-1" }
+  // Response: GetUserResponse (see User example above)
+  rpc GetUser (GetUserRequest) returns (GetUserResponse) {}
+
+  // GetUsers returns paginated users.
+  // Request example:
+  // { "pagination": { "page": 1, "limit": 20 } }
+  // Response example:
+  // { "pagination": { "page":1, "limit":20, "total_items":100, "total_pages":5, "item_count":20 }, "data": [ /* User */ ] }
+  rpc GetUsers (GetUsersRequest) returns (GetUsersResponse) {}
+
+  // CreateUser creates a new user. `user_id` is the actor performing the action.
+  // Request: CreateUserRequest (see CreateUserRequest example)
+  // Response: CreateSuccess containing created `User`.
+  rpc CreateUser (CreateUserRequest) returns (CreateSuccess) {}
+
+  // UpdateUser updates an existing user. Returns UpdateSuccess.
+  // Request example:
+  // { "user": { "user_id": "user-1", "username": "newname" }, "user_id": "admin-1" }
+  // Response: { "success": true, "errors": [] }
+  rpc UpdateUser (UpdateUserRequest) returns (proto.base.v1.UpdateSuccess) {}
+
+  // DeleteUser marks a user as deleted.
+  // Request: { "user_id": "user-1", "deleted_user_id": "admin-1" }
+  // Response: { "success": true, "errors": [] }
+  rpc DeleteUser (DeleteUserRequest) returns (proto.base.v1.DeleteSuccess) {}
+
+  // ChangePassword updates the user's password.
+  // Request: { "user_id": "user-1", "password": "newpass" }
+  // Response: { "success": true, "errors": [] }
+  rpc ChangePassword (ChangePasswordRequest) returns (proto.base.v1.UpdateSuccess) {}
+}

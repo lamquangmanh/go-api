@@ -1,0 +1,34 @@
+/configs/config.yml
+/configs/config.local.yml
+
+# Build outputs
+/bin/
+/*.exe
+/*.exe~
+/*.dll
+/*.so
+/*.dylib
+/*.test
+/*.out
+
+# Coverage / profiling
+/coverage/
+/coverage.out
+/cpu.out
+/mem.out
+/coverage.html
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.*
+
+# IDE/editor
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db

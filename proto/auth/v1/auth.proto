@@ -1,0 +1,58 @@
+
+syntax = "proto3";
+
+package proto.auth.v1;
+
+option go_package = "go-api/pkg/api/authpb;authpb";
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+}
+
+message GetMeRequest {
+  string user_id = 1;
+}
+
+message GetMeResponse {
+  string user_id = 1;
+  string email = 2;
+  string username = 3;
+  optional string avatar = 4;
+  optional string phone = 5;
+  string status = 6;
+}
+
+message VerifyRequest {
+  string token = 1;
+  string request_type = 2;
+  string method = 3;
+  string url = 4;
+}
+
+message VerifyResponse {
+  bool success = 1;
+}
+
+// AuthService: authentication and token verification
+service AuthService {
+  // Login authenticates user and returns tokens
+  // Req example: { "email": "a@b.com", "password": "secret" }
+  // Res example: { "access_token": "...", "refresh_token": "..." }
+  rpc Login (LoginRequest) returns (LoginResponse) {}
+
+  // GetMe returns current user profile
+  // Req example: { "user_id": "uuid" }
+  // Res example: { "user_id": "...", "email": "...", "username": "..." }
+  rpc GetMe (GetMeRequest) returns (GetMeResponse) {}
+
+  // Verify checks token and permission
+  // Req example: { "token":"...", "request_type":"HTTP", "method":"GET", "url":"/api" }
+  // Res example: { "success": true }
+  rpc Verify (VerifyRequest) returns (VerifyResponse) {}
+}

@@ -1,0 +1,231 @@
+---
+# ConfigMap: Database migrations
+# Contains all SQL migration files for version control
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: go-api-migrations
+  namespace: default
+data:
+  migrations.tar.gz: |
+    # In practice, encode actual migration files as base64
+    # For now, this is a placeholder showing the structure
+
+---
+# Secret: Database credentials
+# Store sensitive connection parameters
+apiVersion: v1
+kind: Secret
+metadata:
+  name: go-api-db-secret
+  namespace: default
+type: Opaque
+stringData:
+  db-url: 'postgresql://go_api_user:go_api_password@postgres.default.svc.cluster.local:5432/go_api?sslmode=disable'
+
+---
+# Deployment: Go API with database migrations
+# Uses init container to ensure migrations run before app startup
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-api
+  namespace: default
+  labels:
+    app: go-api
+    version: v1
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: go-api
+  template:
+    metadata:
+      labels:
+        app: go-api
+        version: v1
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '8080'
+        prometheus.io/path: '/metrics'
+    spec:
+      serviceAccountName: go-api
+
+      # Init containers run before app containers
+      # Ensures database migrations complete before app starts
+      initContainers:
+        - name: db-migrate
+          image: go-api:latest # Same image as the app
+          imagePullPolicy: IfNotPresent
+          command:
+            - /app/migrate
+            - -path=/app/db/migrations
+            - -database=$(DATABASE_URL)
+            - up
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: go-api-db-secret
+                  key: db-url
+          # Optional: Add readiness probe for init container
+          startupProbe:
+            exec:
+              command:
+                - /app/migrate
+                - -path=/app/db/migrations
+                - -database=$(DATABASE_URL)
+                - version
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 30
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+      # Main application container
+      containers:
+        - name: grpc-server
+          image: go-api:latest
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: grpc
+              containerPort: 50051
+              protocol: TCP
+            - name: health
+              containerPort: 8080
+              protocol: TCP
+
+          env:
+            - name: GOAPI_CONFIG
+              value: /configs/config.yml
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: go-api-db-secret
+                  key: db-url
+
+          volumeMounts:
+            - name: config
+              mountPath: /configs/config.yml
+              subPath: config.yml
+              readOnly: true
+
+          # Readiness probe: checks if server can handle requests
+          readinessProbe:
+            exec:
+              command:
+                - grpc_health_probe
+                - -addr=localhost:50051
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # Liveness probe: restarts container if it becomes unhealthy
+          livenessProbe:
+            exec:
+              command:
+                - grpc_health_probe
+                - -addr=localhost:50051
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # Resource management
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+          # Security context
+          securityContext:
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+
+      volumes:
+        - name: config
+          configMap:
+            name: go-api-config
+            items:
+              - key: config.yml
+                path: config.yml
+            defaultMode: 0444
+
+      # Pod affinity and disruption budgets for high availability
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - go-api
+                topologyKey: kubernetes.io/hostname
+
+---
+# Service: Expose gRPC server
+apiVersion: v1
+kind: Service
+metadata:
+  name: go-api
+  namespace: default
+  labels:
+    app: go-api
+spec:
+  type: ClusterIP
+  selector:
+    app: go-api
+  ports:
+    - name: grpc
+      port: 50051
+      targetPort: 50051
+      protocol: TCP
+    - name: health
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+
+---
+# ServiceAccount for go-api pods
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: go-api
+  namespace: default
+
+---
+# PodDisruptionBudget: Ensure minimum availability during maintenance
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: go-api-pdb
+  namespace: default
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: go-api

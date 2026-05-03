@@ -1,0 +1,100 @@
+syntax = "proto3";
+
+import "proto/base/v1/base.proto";
+
+package proto.product.v1;
+
+option go_package = "go-api/pkg/api/productpb;productpb";
+
+message Product {
+  string product_id = 1;
+  string name = 2;
+  string description = 3;
+  string url = 4;
+  string created_at = 5;
+  string created_user_id = 6;
+  string updated_at = 7;
+  string updated_user_id = 8;
+  string deleted_at = 9;
+  string deleted_user_id = 10;
+  optional string icon = 11;
+}
+
+message CreateProductData {
+  string name = 1;
+  string description = 2;
+  string url = 3;
+  optional string icon = 4;
+}
+
+message UpdateProductData {
+  string product_id = 1;
+  string name = 2;
+  string description = 3;
+  string url = 4;
+  optional string icon = 5;
+}
+
+message GetProductRequest {
+  string product_id = 1;
+}
+
+message GetProductsRequest {
+  proto.base.v1.PaginationRequest pagination = 1;
+  repeated proto.base.v1.Sort sorts = 2;
+  repeated proto.base.v1.Filter filters = 3;
+}
+
+message GetProductsResponse {
+  proto.base.v1.PaginationResponse pagination = 1;
+  repeated Product data = 2;
+}
+
+message CreateProductRequest {
+  CreateProductData product = 1;
+  string user_id = 2;
+}
+
+message UpdateProductRequest {
+  UpdateProductData product = 1;
+  string user_id = 2;
+}
+
+message DeleteProductRequest {
+  string product_id = 1;
+  string user_id = 2;
+}
+
+message CreateSuccess {
+  Product product = 1;
+  repeated proto.base.v1.ErrorMessage errors = 2;
+}
+
+message GetProductResponse {
+  Product product = 1;
+  repeated proto.base.v1.ErrorMessage errors = 2;
+}
+
+// ProductService: manage products
+service ProductService {
+  // GetProduct returns a product by id
+  // Req example: { "product_id": "uuid" }
+  // Res example: { product: { "product_id": "...", "name": "..." } }
+  rpc GetProduct(GetProductRequest) returns (GetProductResponse) {}
+
+  // GetProducts returns paginated products
+  // Req example: { "pagination": { "page":1, "limit":10 } }
+  rpc GetProducts(GetProductsRequest) returns (GetProductsResponse) {}
+
+  // CreateProduct creates a product
+  // Req example: { "product": { "name":"p" }, "user_id":"uuid" }
+  rpc CreateProduct(CreateProductRequest) returns (CreateSuccess) {}
+
+  // UpdateProduct updates a product
+  // Req example: { "product": { "product_id":"uuid", "name":"new" }, "user_id":"uuid" }
+  rpc UpdateProduct(UpdateProductRequest) returns (proto.base.v1.UpdateSuccess) {}
+
+  // DeleteProduct soft-deletes a product
+  // Req example: { "product_id":"uuid", "user_id":"uuid" }
+  rpc DeleteProduct(DeleteProductRequest) returns (proto.base.v1.DeleteSuccess) {}
+}
