@@ -10,9 +10,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"go-api/internal/repository"
-	basepb "go-api/pkg/api/basepb"
 	"go-api/pkg/constants"
 	"go-api/pkg/utils"
+
+	basev1 "github.com/lamquangmanh/protobuf/gen/go/proto/base/v1"
+	errorv1 "github.com/lamquangmanh/protobuf/gen/go/proto/error/v1"
 )
 
 type ActionService struct {
@@ -48,19 +50,19 @@ type UpdateActionInput struct {
 type ListActionsInput struct {
 	Limit   int32
 	Offset  int32
-	Sorts   []*basepb.Sort
-	Filters []*basepb.Filter
+	Sorts   []*basev1.Sort
+	Filters []*basev1.Filter
 }
 
 // CreateAction validates and creates an action.
-func (s *ActionService) CreateAction(ctx context.Context, in CreateActionInput) (*repository.Action, []*basepb.ErrorMessage) {
+func (s *ActionService) CreateAction(ctx context.Context, in CreateActionInput) (*repository.Action, []*errorv1.ErrorItem) {
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrActionNameRequired)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrActionNameRequired)}
 	}
 	rid, err := uuid.Parse(strings.TrimSpace(in.ResourceID))
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidActionResourceID)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidActionResourceID)}
 	}
 	if in.RequestType == "" {
 		in.RequestType = repository.RequestTypeVIEW
@@ -77,48 +79,48 @@ func (s *ActionService) CreateAction(ctx context.Context, in CreateActionInput) 
 		UpdatedUserID: pgtype.Text{String: in.ActorUserID, Valid: strings.TrimSpace(in.ActorUserID) != ""},
 	})
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrCreateActionInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrCreateActionInternal.Messagef(err.Error()))}
 	}
 	return item, nil
 }
 
 // GetAction returns an action by ID.
-func (s *ActionService) GetAction(ctx context.Context, id string) (*repository.Action, []*basepb.ErrorMessage) {
+func (s *ActionService) GetAction(ctx context.Context, id string) (*repository.Action, []*errorv1.ErrorItem) {
 	id = strings.TrimSpace(id)
 	if id == "" {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrActionIDRequired)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrActionIDRequired)}
 	}
 	aid, err := uuid.Parse(id)
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidActionIDFormat)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidActionIDFormat)}
 	}
 	item, err := s.q.GetAction(ctx, aid)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrActionNotFound.Messagef(id))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrActionNotFound.Messagef(id))}
 		}
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrGetActionInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrGetActionInternal.Messagef(err.Error()))}
 	}
 	return item, nil
 }
 
 // UpdateAction validates input and updates an action.
-func (s *ActionService) UpdateAction(ctx context.Context, in UpdateActionInput) (*repository.Action, []*basepb.ErrorMessage) {
+func (s *ActionService) UpdateAction(ctx context.Context, in UpdateActionInput) (*repository.Action, []*errorv1.ErrorItem) {
 	in.ID = strings.TrimSpace(in.ID)
 	if in.ID == "" {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrActionIDRequired)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrActionIDRequired)}
 	}
 	aid, err := uuid.Parse(in.ID)
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidActionIDFormat)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidActionIDFormat)}
 	}
 	rid, err := uuid.Parse(strings.TrimSpace(in.ResourceID))
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidActionResourceID)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidActionResourceID)}
 	}
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrActionNameRequired)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrActionNameRequired)}
 	}
 	if in.RequestType == "" {
 		in.RequestType = repository.RequestTypeVIEW
@@ -136,31 +138,31 @@ func (s *ActionService) UpdateAction(ctx context.Context, in UpdateActionInput) 
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrActionNotFound.Messagef(in.ID))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrActionNotFound.Messagef(in.ID))}
 		}
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrUpdateActionInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrUpdateActionInternal.Messagef(err.Error()))}
 	}
 	return item, nil
 }
 
 // DeleteAction performs soft-delete for an action.
-func (s *ActionService) DeleteAction(ctx context.Context, id string, actorUserID string) []*basepb.ErrorMessage {
+func (s *ActionService) DeleteAction(ctx context.Context, id string, actorUserID string) []*errorv1.ErrorItem {
 	id = strings.TrimSpace(id)
 	if id == "" {
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrActionIDRequired)}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrActionIDRequired)}
 	}
 	aid, err := uuid.Parse(id)
 	if err != nil {
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidActionIDFormat)}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidActionIDFormat)}
 	}
 	if _, err := s.q.DeleteAction(ctx, repository.DeleteActionParams{
 		ActionID:      aid,
 		DeletedUserID: pgtype.Text{String: actorUserID, Valid: strings.TrimSpace(actorUserID) != ""},
 	}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrActionNotFound.Messagef(id))}
+			return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrActionNotFound.Messagef(id))}
 		}
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrDeleteActionInternal.Messagef(err.Error()))}
+			return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrDeleteActionInternal.Messagef(err.Error()))}
 	}
 	return nil
 }

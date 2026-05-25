@@ -7,16 +7,20 @@ import (
 
 	"go-api/internal/repository"
 	usersvc "go-api/internal/service"
-	basepb "go-api/pkg/api/basepb"
-	userpb "go-api/pkg/api/userpb"
 	"go-api/pkg/constants"
+	"go-api/pkg/logger"
 	"go-api/pkg/utils"
+
+	basev1 "github.com/lamquangmanh/protobuf/gen/go/proto/base/v1"
+	errorv1 "github.com/lamquangmanh/protobuf/gen/go/proto/error/v1"
+	userv1 "github.com/lamquangmanh/protobuf/gen/go/proto/user/v1"
+	"google.golang.org/grpc/codes"
 )
 
 // UserHandler is the thin gRPC transport layer for user operations.
 // It maps proto request/response types to/from the UserService business layer.
 type UserHandler struct {
-	userpb.UnimplementedUserServiceServer
+	userv1.UnimplementedUserServiceServer
 	userService *usersvc.UserService
 }
 
@@ -26,7 +30,7 @@ func NewUserHandler(userService *usersvc.UserService) *UserHandler {
 }
 
 // userRepoToProto converts a repository.User to a userpb.User protobuf message.
-func userRepoToProto(u *repository.User) *userpb.User {
+func userRepoToProto(u *repository.User) *userv1.User {
 	phone := ""
 	if u.Phone.Valid {
 		phone = u.Phone.String
@@ -55,17 +59,17 @@ func userRepoToProto(u *repository.User) *userpb.User {
 	if u.DeletedUserID.Valid {
 		deletedUserID = u.DeletedUserID.String
 	}
-	statusValue := userpb.UserStatus_USER_STATUS_UNSPECIFIED
+	statusValue := userv1.UserStatus_USER_STATUS_UNSPECIFIED
 	switch u.Status {
 	case repository.UserStatusACTIVE:
-		statusValue = userpb.UserStatus_USER_STATUS_ACTIVE
+		statusValue = userv1.UserStatus_USER_STATUS_ACTIVE
 	case repository.UserStatusDEACTIVATED:
-		statusValue = userpb.UserStatus_USER_STATUS_DEACTIVATED
+		statusValue = userv1.UserStatus_USER_STATUS_DEACTIVATED
 	case repository.UserStatusDELETED:
-		statusValue = userpb.UserStatus_USER_STATUS_DELETED
+		statusValue = userv1.UserStatus_USER_STATUS_DELETED
 	}
 
-	return &userpb.User{
+	return &userv1.User{
 		UserId:        u.UserID.String(),
 		Username:      u.UserName,
 		Email:         u.Email,
@@ -83,9 +87,11 @@ func userRepoToProto(u *repository.User) *userpb.User {
 
 // CreateUser delegates to UserService and maps validation errors into the
 // response body (soft errors), returning a gRPC error only for system failures.
-func (s *UserHandler) CreateUser(ctx context.Context, req *userpb.CreateUserRequest) (*userpb.CreateSuccess, error) {
+func (s *UserHandler) CreateUser(ctx context.Context, req *userv1.CreateUserRequest) (*userv1.CreateUserResponse, error) {
 	if req.GetUser() == nil {
-		return &userpb.CreateSuccess{Errors: []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrUserPayloadRequired)}}, nil
+		logger.Error("CreateUser request is nil")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrUserPayloadRequired)})
+		return nil, err
 	}
 	u, errors := s.userService.CreateUser(ctx, usersvc.CreateUserInput{
 		Username:    req.GetUser().GetUsername(),
@@ -98,17 +104,21 @@ func (s *UserHandler) CreateUser(ctx context.Context, req *userpb.CreateUserRequ
 		ActorUserID: req.GetUserId(),
 	})
 	if errors != nil {
-		return &userpb.CreateSuccess{Errors: errors}, nil
+		logger.Error("CreateUser request has errors")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrCreateUserInternal.Messagef(errors))})
+		return nil, err
 	}
 
-	return &userpb.CreateSuccess{User: userRepoToProto(u)}, nil
+	return &userv1.CreateUserResponse{User: userRepoToProto(u)}, nil
 }
 
 // GetUser delegates to UserService and maps the result to a User proto message.
-func (s *UserHandler) GetUser(ctx context.Context, req *userpb.GetUserRequest) (*userpb.GetUserResponse, error) {
+func (s *UserHandler) GetUser(ctx context.Context, req *userv1.GetUserRequest) (*userv1.GetUserResponse, error) {
 	u, errors := s.userService.GetUser(ctx, req.GetUserId())
 	if errors != nil {
-		return &userpb.GetUserResponse{Errors: errors}, nil
+		logger.Error("GetUser request has errors")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrGetUserInternal.Messagef(errors))})
+		return nil, err
 	}
 	roles, _, _, _, err := s.userService.ListUserRoles(ctx, req.GetUserId(), 1000, 0)
 	if err == nil {
@@ -118,15 +128,17 @@ func (s *UserHandler) GetUser(ctx context.Context, req *userpb.GetUserRequest) (
 		}
 		protoUser := userRepoToProto(u)
 		protoUser.RoleIds = roleIDs
-		return &userpb.GetUserResponse{User: protoUser}, nil
+		return &userv1.GetUserResponse{User: protoUser}, nil
 	}
-	return &userpb.GetUserResponse{User: userRepoToProto(u)}, nil
+	return &userv1.GetUserResponse{User: userRepoToProto(u)}, nil
 }
 
 // UpdateUser delegates to UserService and maps the updated user to a User proto message.
-func (s *UserHandler) UpdateUser(ctx context.Context, req *userpb.UpdateUserRequest) (*basepb.UpdateSuccess, error) {
+func (s *UserHandler) UpdateUser(ctx context.Context, req *userv1.UpdateUserRequest) (*userv1.UpdateUserResponse, error) {
 	if req.GetUser() == nil {
-		return utils.UpdateErr(utils.ErrMsg(constants.ErrUserPayloadRequired)), nil
+		logger.Error("UpdateUser request is nil")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrUserPayloadRequired)})
+		return nil, err
 	}
 	_, errors := s.userService.UpdateUser(ctx, usersvc.UpdateUserInput{
 		ID:          req.GetUser().GetUserId(),
@@ -139,21 +151,25 @@ func (s *UserHandler) UpdateUser(ctx context.Context, req *userpb.UpdateUserRequ
 		ActorUserID: req.GetUserId(),
 	})
 	if errors != nil {
-		return utils.UpdateErr(errors...), nil
+		logger.Error("UpdateUser request has errors")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrUpdateUserInternal.Messagef(errors))})
+		return nil, err
 	}
-	return utils.UpdateOK(), nil
+	return &userv1.UpdateUserResponse{Success: true}, nil
 }
 
 // DeleteUser delegates to UserService and returns a DeleteUserResponse.
-func (s *UserHandler) DeleteUser(ctx context.Context, req *userpb.DeleteUserRequest) (*basepb.DeleteSuccess, error) {
+func (s *UserHandler) DeleteUser(ctx context.Context, req *userv1.DeleteUserRequest) (*userv1.DeleteUserResponse, error) {
 	if errors := s.userService.DeleteUser(ctx, req.GetUserId(), req.GetDeletedUserId()); errors != nil {
-		return utils.DeleteErr(errors...), nil
+		logger.Error("DeleteUser request has errors")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrDeleteUserInternal.Messagef(errors))})
+		return nil, err
 	}
-	return utils.DeleteOK(), nil
+	return &userv1.DeleteUserResponse{Success: true}, nil
 }
 
 // ListUsers delegates to UserService and maps the results to a ListUsersResponse.
-func (s *UserHandler) GetUsers(ctx context.Context, req *userpb.GetUsersRequest) (*userpb.GetUsersResponse, error) {
+func (s *UserHandler) GetUsers(ctx context.Context, req *userv1.GetUsersRequest) (*userv1.GetUsersResponse, error) {
 	limit := int32(20)
 	page := int32(1)
 	if p := req.GetPagination(); p != nil {
@@ -166,17 +182,24 @@ func (s *UserHandler) GetUsers(ctx context.Context, req *userpb.GetUsersRequest)
 	}
 	offset := (page - 1) * limit
 
+	sorts := make([]*basev1.Sort, 0, len(req.GetSorts()))
+	sorts = append(sorts, req.GetSorts()...)
+	filters := make([]*basev1.Filter, 0, len(req.GetFilters()))
+	filters = append(filters, req.GetFilters()...)
+
 	rows, total, appliedLimit, appliedOffset, err := s.userService.ListUsers(ctx, usersvc.ListUsersInput{
 		Limit:   limit,
 		Offset:  offset,
-		Sorts:   req.GetSorts(),
-		Filters: req.GetFilters(),
+		Sorts:   sorts,
+		Filters: filters,
 	})
 	if err != nil {
-		return &userpb.GetUsersResponse{Data: nil, Pagination: &basepb.PaginationResponse{}}, nil
+		logger.Error("ListUsers request has errors")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrListUsersInternal.Messagef(err))})
+		return nil, err
 	}
 
-	data := make([]*userpb.User, 0, len(rows))
+	data := make([]*userv1.User, 0, len(rows))
 	for _, row := range rows {
 		data = append(data, userRepoToProto(row))
 	}
@@ -186,9 +209,9 @@ func (s *UserHandler) GetUsers(ctx context.Context, req *userpb.GetUsersRequest)
 		totalPages = 0
 	}
 
-	return &userpb.GetUsersResponse{
+	return &userv1.GetUsersResponse{
 		Data: data,
-		Pagination: &basepb.PaginationResponse{
+		Pagination: &basev1.PaginationResponse{
 			Page:       (appliedOffset / appliedLimit) + 1,
 			Limit:      appliedLimit,
 			TotalItems: totalItems,
@@ -198,9 +221,11 @@ func (s *UserHandler) GetUsers(ctx context.Context, req *userpb.GetUsersRequest)
 	}, nil
 }
 
-func (s *UserHandler) ChangePassword(ctx context.Context, req *userpb.ChangePasswordRequest) (*basepb.UpdateSuccess, error) {
+func (s *UserHandler) ChangePassword(ctx context.Context, req *userv1.ChangePasswordRequest) (*userv1.ChangePasswordResponse, error) {
 	if errors := s.userService.ChangePassword(ctx, req.GetUserId(), req.GetPassword()); errors != nil {
-		return utils.UpdateErr(errors...), nil
+		logger.Error("ChangePassword request has errors")
+		_, err := utils.ResponseError(codes.InvalidArgument, errors)
+		return nil, err
 	}
-	return utils.UpdateOK(), nil
+	return &userv1.ChangePasswordResponse{Success: true}, nil
 }

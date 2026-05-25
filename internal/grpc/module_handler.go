@@ -6,18 +6,22 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"google.golang.org/grpc/codes"
 
 	"go-api/internal/repository"
 	modulesvc "go-api/internal/service"
 	productsvc "go-api/internal/service"
-	basepb "go-api/pkg/api/basepb"
-	modulepb "go-api/pkg/api/modulepb"
 	"go-api/pkg/constants"
+	"go-api/pkg/logger"
 	"go-api/pkg/utils"
+
+	basev1 "github.com/lamquangmanh/protobuf/gen/go/proto/base/v1"
+	errorv1 "github.com/lamquangmanh/protobuf/gen/go/proto/error/v1"
+	modulev1 "github.com/lamquangmanh/protobuf/gen/go/proto/module/v1"
 )
 
 type ModuleHandler struct {
-	modulepb.UnimplementedModuleServiceServer
+	modulev1.UnimplementedModuleServiceServer
 	moduleService  *modulesvc.ModuleService
 	productService *productsvc.ProductService
 }
@@ -28,7 +32,7 @@ func NewModuleHandler(moduleService *modulesvc.ModuleService, productService *pr
 }
 
 // moduleRepoToProto maps repository module model to protobuf response model.
-func moduleRepoToProto(item *repository.Module) *modulepb.Module {
+func moduleRepoToProto(item *repository.Module) *modulev1.Module {
 	description := ""
 	if item.Description.Valid {
 		description = item.Description.String
@@ -66,7 +70,7 @@ func moduleRepoToProto(item *repository.Module) *modulepb.Module {
 		deletedUserID = item.DeletedUserID.String
 	}
 
-	return &modulepb.Module{
+	return &modulev1.Module{
 		ModuleId:      item.ModuleID.String(),
 		Name:          item.Name,
 		Description:   description,
@@ -83,16 +87,17 @@ func moduleRepoToProto(item *repository.Module) *modulepb.Module {
 }
 
 // GetModule returns a single module by ID.
-func (h *ModuleHandler) GetModule(ctx context.Context, req *modulepb.GetModuleRequest) (*modulepb.GetModuleResponse, error) {
+func (h *ModuleHandler) GetModule(ctx context.Context, req *modulev1.GetModuleRequest) (*modulev1.GetModuleResponse, error) {
 	item, errors := h.moduleService.GetModule(ctx, req.GetModuleId())
 	if errors != nil {
-		return &modulepb.GetModuleResponse{Errors: errors}, nil
+		_, err := utils.ResponseError(codes.InvalidArgument, errors)
+		return nil, err
 	}
-	return &modulepb.GetModuleResponse{Module: moduleRepoToProto(item)}, nil
+	return &modulev1.GetModuleResponse{Module: moduleRepoToProto(item)}, nil
 }
 
 // GetModules returns paginated modules with validated sorts and filters.
-func (h *ModuleHandler) GetModules(ctx context.Context, req *modulepb.GetModulesRequest) (*modulepb.GetModulesResponse, error) {
+func (h *ModuleHandler) GetModules(ctx context.Context, req *modulev1.GetModulesRequest) (*modulev1.GetModulesResponse, error) {
 	limit := int32(20)
 	page := int32(1)
 	if req.GetPagination() != nil {
@@ -105,16 +110,21 @@ func (h *ModuleHandler) GetModules(ctx context.Context, req *modulepb.GetModules
 	}
 	offset := (page - 1) * limit
 
+	sorts := make([]*basev1.Sort, 0, len(req.GetSorts()))
+	sorts = append(sorts, req.GetSorts()...)
+	filters := make([]*basev1.Filter, 0, len(req.GetFilters()))
+	filters = append(filters, req.GetFilters()...)
+
 	items, total, appliedLimit, appliedOffset, err := h.moduleService.ListModules(ctx, modulesvc.ListModulesInput{
 		Limit:   limit,
 		Offset:  offset,
-		Sorts:   req.GetSorts(),
-		Filters: req.GetFilters(),
+		Sorts:   sorts,
+		Filters: filters,
 	})
 	if err != nil {
-		return &modulepb.GetModulesResponse{Data: nil, Pagination: &basepb.PaginationResponse{}}, nil
+		return &modulev1.GetModulesResponse{Data: nil, Pagination: &basev1.PaginationResponse{}}, nil
 	}
-	data := make([]*modulepb.Module, 0, len(items))
+	data := make([]*modulev1.Module, 0, len(items))
 	for _, item := range items {
 		data = append(data, moduleRepoToProto(item))
 	}
@@ -123,9 +133,9 @@ func (h *ModuleHandler) GetModules(ctx context.Context, req *modulepb.GetModules
 		totalPages = 0
 	}
 
-	return &modulepb.GetModulesResponse{
+	return &modulev1.GetModulesResponse{
 		Data: data,
-		Pagination: &basepb.PaginationResponse{
+		Pagination: &basev1.PaginationResponse{
 			Page:       (appliedOffset / appliedLimit) + 1,
 			Limit:      appliedLimit,
 			TotalItems: int32(total),
@@ -136,9 +146,11 @@ func (h *ModuleHandler) GetModules(ctx context.Context, req *modulepb.GetModules
 }
 
 // CreateModule validates payload and creates a new module.
-func (h *ModuleHandler) CreateModule(ctx context.Context, req *modulepb.CreateModuleRequest) (*modulepb.CreateSuccess, error) {
+func (h *ModuleHandler) CreateModule(ctx context.Context, req *modulev1.CreateModuleRequest) (*modulev1.CreateModuleResponse, error) {
 	if req.GetModule() == nil {
-		return &modulepb.CreateSuccess{Errors: []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrModulePayloadRequired)}}, nil
+		logger.Error("CreateModule request is nil")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrModulePayloadRequired)})
+		return nil, err
 	}
 	icon := ""
 	if req.GetModule().Icon != nil {
@@ -150,7 +162,9 @@ func (h *ModuleHandler) CreateModule(ctx context.Context, req *modulepb.CreateMo
 	}
 
 	if _, productErrors := h.productService.GetProduct(ctx, req.GetModule().GetProductId()); productErrors != nil {
-		return &modulepb.CreateSuccess{Errors: []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidModuleProductID)}}, nil
+		logger.Error("CreateModule request has invalid product ID")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidModuleProductID)})
+		return nil, err
 	}
 
 	item, errors := h.moduleService.CreateModule(ctx, modulesvc.CreateModuleInput{
@@ -162,15 +176,18 @@ func (h *ModuleHandler) CreateModule(ctx context.Context, req *modulepb.CreateMo
 		ActorUserID: req.GetUserId(),
 	})
 	if errors != nil {
-		return &modulepb.CreateSuccess{Errors: errors}, nil
+		_, err := utils.ResponseError(codes.InvalidArgument, errors)
+		return nil, err
 	}
-	return &modulepb.CreateSuccess{Module: moduleRepoToProto(item)}, nil
+	return &modulev1.CreateModuleResponse{Module: moduleRepoToProto(item)}, nil
 }
 
 // UpdateModule updates an existing module.
-func (h *ModuleHandler) UpdateModule(ctx context.Context, req *modulepb.UpdateModuleRequest) (*basepb.UpdateSuccess, error) {
+func (h *ModuleHandler) UpdateModule(ctx context.Context, req *modulev1.UpdateModuleRequest) (*modulev1.UpdateModuleResponse, error) {
 	if req.GetModule() == nil {
-		return utils.UpdateErr(utils.ErrMsg(constants.ErrModulePayloadRequired)), nil
+		logger.Error("UpdateModule request is nil")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrModulePayloadRequired)})
+		return nil, err
 	}
 	icon := ""
 	if req.GetModule().Icon != nil {
@@ -182,7 +199,9 @@ func (h *ModuleHandler) UpdateModule(ctx context.Context, req *modulepb.UpdateMo
 	}
 
 	if _, productErrors := h.productService.GetProduct(ctx, req.GetModule().GetProductId()); productErrors != nil {
-		return utils.UpdateErr(utils.ErrMsg(constants.ErrInvalidModuleProductID)), nil
+		logger.Error("UpdateModule request has invalid product ID")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidModuleProductID)})
+		return nil, err
 	}
 
 	_, errors := h.moduleService.UpdateModule(ctx, modulesvc.UpdateModuleInput{
@@ -195,15 +214,19 @@ func (h *ModuleHandler) UpdateModule(ctx context.Context, req *modulepb.UpdateMo
 		ActorUserID: req.GetUserId(),
 	})
 	if errors != nil {
-		return utils.UpdateErr(errors...), nil
+		logger.Error("UpdateModule request has errors")
+		_, err := utils.ResponseError(codes.InvalidArgument, errors)
+		return nil, err
 	}
-	return utils.UpdateOK(), nil
+	return &modulev1.UpdateModuleResponse{}, nil
 }
 
 // DeleteModule performs a soft-delete for a module.
-func (h *ModuleHandler) DeleteModule(ctx context.Context, req *modulepb.DeleteModuleRequest) (*basepb.DeleteSuccess, error) {
+func (h *ModuleHandler) DeleteModule(ctx context.Context, req *modulev1.DeleteModuleRequest) (*modulev1.DeleteModuleResponse, error) {
 	if errors := h.moduleService.DeleteModule(ctx, req.GetModuleId(), req.GetUserId()); errors != nil {
-		return utils.DeleteErr(errors...), nil
+		logger.Error("DeleteModule request has errors")
+		_, err := utils.ResponseError(codes.InvalidArgument, errors)
+		return nil, err
 	}
-	return utils.DeleteOK(), nil
+	return &modulev1.DeleteModuleResponse{}, nil
 }

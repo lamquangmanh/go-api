@@ -6,17 +6,21 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"google.golang.org/grpc/codes"
 
 	"go-api/internal/repository"
 	rolesvc "go-api/internal/service"
-	basepb "go-api/pkg/api/basepb"
-	rolepb "go-api/pkg/api/rolepb"
 	"go-api/pkg/constants"
+	"go-api/pkg/logger"
 	"go-api/pkg/utils"
+
+	basev1 "github.com/lamquangmanh/protobuf/gen/go/proto/base/v1"
+	errorv1 "github.com/lamquangmanh/protobuf/gen/go/proto/error/v1"
+	rolev1 "github.com/lamquangmanh/protobuf/gen/go/proto/role/v1"
 )
 
 type RoleHandler struct {
-	rolepb.UnimplementedRoleServiceServer
+	rolev1.UnimplementedRoleServiceServer
 	roleService *rolesvc.RoleService
 }
 
@@ -26,7 +30,7 @@ func NewRoleHandler(roleService *rolesvc.RoleService) *RoleHandler {
 }
 
 // roleRepoToProto converts repository.Role to protobuf Role response format.
-func roleRepoToProto(role *repository.Role) *rolepb.Role {
+func roleRepoToProto(role *repository.Role) *rolev1.Role {
 	description := ""
 	if role.Description.Valid {
 		description = role.Description.String
@@ -56,7 +60,7 @@ func roleRepoToProto(role *repository.Role) *rolepb.Role {
 		deletedUserID = role.DeletedUserID.String
 	}
 
-	return &rolepb.Role{
+	return &rolev1.Role{
 		RoleId:        role.RoleID.String(),
 		Name:          role.Name,
 		Description:   description,
@@ -71,9 +75,11 @@ func roleRepoToProto(role *repository.Role) *rolepb.Role {
 }
 
 // CreateRole maps gRPC request to service input and returns created role.
-func (s *RoleHandler) CreateRole(ctx context.Context, req *rolepb.CreateRoleRequest) (*rolepb.CreateSuccess, error) {
+func (s *RoleHandler) CreateRole(ctx context.Context, req *rolev1.CreateRoleRequest) (*rolev1.CreateRoleResponse, error) {
 	if req.GetRole() == nil {
-		return &rolepb.CreateSuccess{Errors: []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrRolePayloadRequired)}}, nil
+		logger.Error("CreateRole request is nil")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrRolePayloadRequired)})
+		return nil, err
 	}
 	role, errors := s.roleService.CreateRole(ctx, rolesvc.CreateRoleInput{
 		Name:        req.GetRole().GetName(),
@@ -82,26 +88,32 @@ func (s *RoleHandler) CreateRole(ctx context.Context, req *rolepb.CreateRoleRequ
 		ActorUserID: req.GetUserId(),
 	})
 	if errors != nil {
-		return &rolepb.CreateSuccess{Errors: errors}, nil
+		logger.Error("CreateRole request has errors")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrCreateRoleInternal.Messagef(errors))})
+		return nil, err
 	}
 
-	return &rolepb.CreateSuccess{Role: roleRepoToProto(role)}, nil
+	return &rolev1.CreateRoleResponse{Role: roleRepoToProto(role)}, nil
 }
 
 // GetRole fetches a role by ID and maps it into protobuf response.
-func (s *RoleHandler) GetRole(ctx context.Context, req *rolepb.GetRoleRequest) (*rolepb.GetRoleResponse, error) {
+func (s *RoleHandler) GetRole(ctx context.Context, req *rolev1.GetRoleRequest) (*rolev1.GetRoleResponse, error) {
 	role, errors := s.roleService.GetRole(ctx, req.GetRoleId())
 	if errors != nil {
-		return &rolepb.GetRoleResponse{Errors: errors}, nil
+		logger.Error("GetRole request has errors")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrGetRoleInternal.Messagef(errors))})
+		return nil, err
 	}
 
-	return &rolepb.GetRoleResponse{Role: roleRepoToProto(role)}, nil
+	return &rolev1.GetRoleResponse{Role: roleRepoToProto(role)}, nil
 }
 
 // UpdateRole maps gRPC request to partial-update service input.
-func (s *RoleHandler) UpdateRole(ctx context.Context, req *rolepb.UpdateRoleRequest) (*basepb.UpdateSuccess, error) {
+func (s *RoleHandler) UpdateRole(ctx context.Context, req *rolev1.UpdateRoleRequest) (*rolev1.UpdateRoleResponse, error) {
 	if req.GetRole() == nil {
-		return utils.UpdateErr(utils.ErrMsg(constants.ErrRolePayloadRequired)), nil
+		logger.Error("UpdateRole request is nil")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrRolePayloadRequired)})
+		return nil, err
 	}
 	_, errors := s.roleService.UpdateRole(ctx, rolesvc.UpdateRoleInput{
 		ID:          req.GetRole().GetRoleId(),
@@ -111,21 +123,25 @@ func (s *RoleHandler) UpdateRole(ctx context.Context, req *rolepb.UpdateRoleRequ
 		ActorUserID: req.GetUserId(),
 	})
 	if errors != nil {
-		return utils.UpdateErr(errors...), nil
+		logger.Error("UpdateRole request has errors")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrUpdateRoleInternal.Messagef(errors))})
+		return nil, err
 	}
-	return utils.UpdateOK(), nil
+	return &rolev1.UpdateRoleResponse{Success: true}, nil
 }
 
 // DeleteRole triggers role soft-delete and returns deletion status.
-func (s *RoleHandler) DeleteRole(ctx context.Context, req *rolepb.DeleteRoleRequest) (*basepb.DeleteSuccess, error) {
+func (s *RoleHandler) DeleteRole(ctx context.Context, req *rolev1.DeleteRoleRequest) (*rolev1.DeleteRoleResponse, error) {
 	if errors := s.roleService.DeleteRole(ctx, req.GetRoleId(), req.GetUserId()); errors != nil {
-		return utils.DeleteErr(errors...), nil
+		logger.Error("DeleteRole request has errors")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrDeleteRoleInternal.Messagef(errors))})
+		return nil, err
 	}
-	return utils.DeleteOK(), nil
+	return &rolev1.DeleteRoleResponse{Success: true}, nil
 }
 
 // ListRoles returns filtered and paginated roles plus pagination metadata.
-func (s *RoleHandler) GetRoles(ctx context.Context, req *rolepb.GetRolesRequest) (*rolepb.GetRolesResponse, error) {
+func (s *RoleHandler) GetRoles(ctx context.Context, req *rolev1.GetRolesRequest) (*rolev1.GetRolesResponse, error) {
 	var limit int32 = 20
 	var page int32 = 1
 	if req.GetPagination() != nil {
@@ -138,17 +154,24 @@ func (s *RoleHandler) GetRoles(ctx context.Context, req *rolepb.GetRolesRequest)
 	}
 	offset := (page - 1) * limit
 
+	sorts := make([]*basev1.Sort, 0, len(req.GetSorts()))
+	sorts = append(sorts, req.GetSorts()...)
+	filters := make([]*basev1.Filter, 0, len(req.GetFilters()))
+	filters = append(filters, req.GetFilters()...)
+
 	roles, total, appliedLimit, appliedOffset, err := s.roleService.ListRoles(ctx, rolesvc.ListRolesInput{
 		Limit:   limit,
 		Offset:  offset,
-		Sorts:   req.GetSorts(),
-		Filters: req.GetFilters(),
+		Sorts:   sorts,
+		Filters: filters,
 	})
 	if err != nil {
-		return &rolepb.GetRolesResponse{Data: nil, Pagination: &basepb.PaginationResponse{}}, nil
+		logger.Error("ListRoles request has errors")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrListRolesInternal.Messagef(err))})
+		return nil, err
 	}
 
-	roleItems := make([]*rolepb.Role, 0, len(roles))
+	roleItems := make([]*rolev1.Role, 0, len(roles))
 	for _, role := range roles {
 		roleItems = append(roleItems, roleRepoToProto(role))
 	}
@@ -159,9 +182,9 @@ func (s *RoleHandler) GetRoles(ctx context.Context, req *rolepb.GetRolesRequest)
 		totalPages = 0
 	}
 
-	return &rolepb.GetRolesResponse{
+	return &rolev1.GetRolesResponse{
 		Data: roleItems,
-		Pagination: &basepb.PaginationResponse{
+		Pagination: &basev1.PaginationResponse{
 			Page:       (appliedOffset / appliedLimit) + 1,
 			Limit:      appliedLimit,
 			TotalItems: totalItems,

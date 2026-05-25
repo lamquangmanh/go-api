@@ -7,14 +7,18 @@ import (
 
 	"go-api/internal/repository"
 	actionsvc "go-api/internal/service"
-	actionpb "go-api/pkg/api/actionpb"
-	basepb "go-api/pkg/api/basepb"
 	"go-api/pkg/constants"
+	"go-api/pkg/logger"
 	"go-api/pkg/utils"
+
+	actionv1 "github.com/lamquangmanh/protobuf/gen/go/proto/action/v1"
+	basev1 "github.com/lamquangmanh/protobuf/gen/go/proto/base/v1"
+	errorv1 "github.com/lamquangmanh/protobuf/gen/go/proto/error/v1"
+	"google.golang.org/grpc/codes"
 )
 
 type ActionHandler struct {
-	actionpb.UnimplementedActionServiceServer
+	actionv1.UnimplementedActionServiceServer
 	actionService *actionsvc.ActionService
 }
 
@@ -24,31 +28,31 @@ func NewActionHandler(actionService *actionsvc.ActionService) *ActionHandler {
 }
 
 // mapRequestTypeToProto converts repository request type into protobuf enum.
-func mapRequestTypeToProto(value repository.RequestType) actionpb.ActionRequestType {
+func mapRequestTypeToProto(value repository.RequestType) actionv1.ActionRequestType {
 	switch value {
 	case repository.RequestTypeHTTP:
-		return actionpb.ActionRequestType_ACTION_REQUEST_TYPE_HTTP
+		return actionv1.ActionRequestType_ACTION_REQUEST_TYPE_HTTP
 	case repository.RequestTypeGRAPHQL:
-		return actionpb.ActionRequestType_ACTION_REQUEST_TYPE_GRAPHQL
+		return actionv1.ActionRequestType_ACTION_REQUEST_TYPE_GRAPHQL
 	case repository.RequestTypeGRPC:
-		return actionpb.ActionRequestType_ACTION_REQUEST_TYPE_GRPC
+		return actionv1.ActionRequestType_ACTION_REQUEST_TYPE_GRPC
 	case repository.RequestTypeWEBSOCKET:
-		return actionpb.ActionRequestType_ACTION_REQUEST_TYPE_WEBSOCKET
+		return actionv1.ActionRequestType_ACTION_REQUEST_TYPE_WEBSOCKET
 	default:
-		return actionpb.ActionRequestType_ACTION_REQUEST_TYPE_VIEW
+		return actionv1.ActionRequestType_ACTION_REQUEST_TYPE_VIEW
 	}
 }
 
 // mapRequestTypeFromProtoAction converts protobuf request type into repository enum.
-func mapRequestTypeFromProtoAction(value actionpb.ActionRequestType) repository.RequestType {
+func mapRequestTypeFromProtoAction(value actionv1.ActionRequestType) repository.RequestType {
 	switch value {
-	case actionpb.ActionRequestType_ACTION_REQUEST_TYPE_HTTP:
+	case actionv1.ActionRequestType_ACTION_REQUEST_TYPE_HTTP:
 		return repository.RequestTypeHTTP
-	case actionpb.ActionRequestType_ACTION_REQUEST_TYPE_GRAPHQL:
+	case actionv1.ActionRequestType_ACTION_REQUEST_TYPE_GRAPHQL:
 		return repository.RequestTypeGRAPHQL
-	case actionpb.ActionRequestType_ACTION_REQUEST_TYPE_GRPC:
+	case actionv1.ActionRequestType_ACTION_REQUEST_TYPE_GRPC:
 		return repository.RequestTypeGRPC
-	case actionpb.ActionRequestType_ACTION_REQUEST_TYPE_WEBSOCKET:
+	case actionv1.ActionRequestType_ACTION_REQUEST_TYPE_WEBSOCKET:
 		return repository.RequestTypeWEBSOCKET
 	default:
 		return repository.RequestTypeVIEW
@@ -56,7 +60,7 @@ func mapRequestTypeFromProtoAction(value actionpb.ActionRequestType) repository.
 }
 
 // actionRepoToProto maps repository action model to protobuf response model.
-func actionRepoToProto(item *repository.Action) *actionpb.Action {
+func actionRepoToProto(item *repository.Action) *actionv1.Action {
 	description := ""
 	if item.Description.Valid {
 		description = item.Description.String
@@ -82,7 +86,7 @@ func actionRepoToProto(item *repository.Action) *actionpb.Action {
 		deletedUserID = item.DeletedUserID.String
 	}
 
-	return &actionpb.Action{
+	return &actionv1.Action{
 		ActionId:      item.ActionID.String(),
 		ResourceId:    item.ResourceID.String(),
 		Name:          item.Name,
@@ -100,16 +104,18 @@ func actionRepoToProto(item *repository.Action) *actionpb.Action {
 }
 
 // GetAction returns a single action by ID.
-func (h *ActionHandler) GetAction(ctx context.Context, req *actionpb.GetActionRequest) (*actionpb.GetActionResponse, error) {
+func (h *ActionHandler) GetAction(ctx context.Context, req *actionv1.GetActionRequest) (*actionv1.GetActionResponse, error) {
 	item, errors := h.actionService.GetAction(ctx, req.GetActionId())
 	if errors != nil {
-		return &actionpb.GetActionResponse{Errors: errors}, nil
+		logger.Error("GetAction request is nil")
+		_, err := utils.ResponseError(codes.InvalidArgument, errors)
+		return nil, err
 	}
-	return &actionpb.GetActionResponse{Action: actionRepoToProto(item)}, nil
+	return &actionv1.GetActionResponse{Action: actionRepoToProto(item)}, nil
 }
 
 // GetActions returns paginated actions with validated sorts and filters.
-func (h *ActionHandler) GetActions(ctx context.Context, req *actionpb.GetActionsRequest) (*actionpb.GetActionsResponse, error) {
+func (h *ActionHandler) GetActions(ctx context.Context, req *actionv1.GetActionsRequest) (*actionv1.GetActionsResponse, error) {
 	limit := int32(20)
 	page := int32(1)
 	if req.GetPagination() != nil {
@@ -122,16 +128,21 @@ func (h *ActionHandler) GetActions(ctx context.Context, req *actionpb.GetActions
 	}
 	offset := (page - 1) * limit
 
+	sorts := make([]*basev1.Sort, 0, len(req.GetSorts()))
+	sorts = append(sorts, req.GetSorts()...)
+	filters := make([]*basev1.Filter, 0, len(req.GetFilters()))
+	filters = append(filters, req.GetFilters()...)
+
 	items, total, appliedLimit, appliedOffset, err := h.actionService.ListActions(ctx, actionsvc.ListActionsInput{
 		Limit:   limit,
 		Offset:  offset,
-		Sorts:   req.GetSorts(),
-		Filters: req.GetFilters(),
+		Sorts:   sorts,
+		Filters: filters,
 	})
 	if err != nil {
-		return &actionpb.GetActionsResponse{Data: nil, Pagination: &basepb.PaginationResponse{}}, nil
+		return &actionv1.GetActionsResponse{Data: nil, Pagination: &basev1.PaginationResponse{}}, nil
 	}
-	data := make([]*actionpb.Action, 0, len(items))
+	data := make([]*actionv1.Action, 0, len(items))
 	for _, item := range items {
 		data = append(data, actionRepoToProto(item))
 	}
@@ -140,9 +151,9 @@ func (h *ActionHandler) GetActions(ctx context.Context, req *actionpb.GetActions
 		totalPages = 0
 	}
 
-	return &actionpb.GetActionsResponse{
+	return &actionv1.GetActionsResponse{
 		Data: data,
-		Pagination: &basepb.PaginationResponse{
+		Pagination: &basev1.PaginationResponse{
 			Page:       (appliedOffset / appliedLimit) + 1,
 			Limit:      appliedLimit,
 			TotalItems: int32(total),
@@ -153,9 +164,11 @@ func (h *ActionHandler) GetActions(ctx context.Context, req *actionpb.GetActions
 }
 
 // CreateAction validates payload and creates a new action.
-func (h *ActionHandler) CreateAction(ctx context.Context, req *actionpb.CreateActionRequest) (*actionpb.CreateSuccess, error) {
+func (h *ActionHandler) CreateAction(ctx context.Context, req *actionv1.CreateActionRequest) (*actionv1.CreateActionResponse, error) {
 	if req.GetAction() == nil {
-		return &actionpb.CreateSuccess{Errors: []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrActionPayloadRequired)}}, nil
+		logger.Error("CreateAction request is nil")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrActionPayloadRequired)})
+		return nil, err
 	}
 	item, errors := h.actionService.CreateAction(ctx, actionsvc.CreateActionInput{
 		ResourceID:  req.GetAction().GetResourceId(),
@@ -167,15 +180,18 @@ func (h *ActionHandler) CreateAction(ctx context.Context, req *actionpb.CreateAc
 		ActorUserID: req.GetUserId(),
 	})
 	if errors != nil {
-		return &actionpb.CreateSuccess{Errors: errors}, nil
+		_, err := utils.ResponseError(codes.InvalidArgument, errors)
+		return nil, err
 	}
-	return &actionpb.CreateSuccess{Action: actionRepoToProto(item)}, nil
+	return &actionv1.CreateActionResponse{Action: actionRepoToProto(item)}, nil
 }
 
 // UpdateAction updates an existing action.
-func (h *ActionHandler) UpdateAction(ctx context.Context, req *actionpb.UpdateActionRequest) (*basepb.UpdateSuccess, error) {
+func (h *ActionHandler) UpdateAction(ctx context.Context, req *actionv1.UpdateActionRequest) (*actionv1.UpdateActionResponse, error) {
 	if req.GetAction() == nil {
-		return utils.UpdateErr(utils.ErrMsg(constants.ErrActionPayloadRequired)), nil
+		logger.Error("UpdateAction request is nil")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrActionPayloadRequired)})
+		return nil, err
 	}
 	_, errors := h.actionService.UpdateAction(ctx, actionsvc.UpdateActionInput{
 		ID:          req.GetAction().GetActionId(),
@@ -188,15 +204,17 @@ func (h *ActionHandler) UpdateAction(ctx context.Context, req *actionpb.UpdateAc
 		ActorUserID: req.GetUserId(),
 	})
 	if errors != nil {
-		return utils.UpdateErr(errors...), nil
+		_, err := utils.ResponseError(codes.InvalidArgument, errors)
+		return nil, err
 	}
-	return utils.UpdateOK(), nil
+	return &actionv1.UpdateActionResponse{}, nil
 }
 
 // DeleteAction performs a soft-delete for an action.
-func (h *ActionHandler) DeleteAction(ctx context.Context, req *actionpb.DeleteActionRequest) (*basepb.DeleteSuccess, error) {
+func (h *ActionHandler) DeleteAction(ctx context.Context, req *actionv1.DeleteActionRequest) (*actionv1.DeleteActionResponse, error) {
 	if errors := h.actionService.DeleteAction(ctx, req.GetActionId(), req.GetUserId()); errors != nil {
-		return utils.DeleteErr(errors...), nil
+		_, err := utils.ResponseError(codes.InvalidArgument, errors)
+		return nil, err
 	}
-	return utils.DeleteOK(), nil
+	return &actionv1.DeleteActionResponse{}, nil
 }

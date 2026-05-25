@@ -10,10 +10,12 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"go-api/internal/repository"
-	basepb "go-api/pkg/api/basepb"
 	"go-api/pkg/constants"
 	"go-api/pkg/logger"
 	"go-api/pkg/utils"
+
+	basev1 "github.com/lamquangmanh/protobuf/gen/go/proto/base/v1"
+	errorv1 "github.com/lamquangmanh/protobuf/gen/go/proto/error/v1"
 )
 
 type ProductService struct {
@@ -41,12 +43,12 @@ type UpdateProductInput struct {
 }
 
 // CreateProduct validates and creates a product.
-func (s *ProductService) CreateProduct(ctx context.Context, in CreateProductInput) (*repository.Product, []*basepb.ErrorMessage) {
+func (s *ProductService) CreateProduct(ctx context.Context, in CreateProductInput) (*repository.Product, []*errorv1.ErrorItem) {
 	name := strings.TrimSpace(in.Name)
 	description := strings.TrimSpace(in.Description)
 	url := strings.TrimSpace(in.Url)
 	if name == "" {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrProductNameRequired)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrProductNameRequired)}
 
 	}
 	item, err := s.q.InsertProduct(ctx, repository.InsertProductParams{
@@ -57,50 +59,50 @@ func (s *ProductService) CreateProduct(ctx context.Context, in CreateProductInpu
 		UpdatedUserID: pgtype.Text{String: in.ActorUserID, Valid: strings.TrimSpace(in.ActorUserID) != ""},
 	})
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrCreateProductInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrCreateProductInternal.Messagef(err.Error()))}
 	}
 	return item, nil
 }
 
 // GetProduct returns a product by ID.
-func (s *ProductService) GetProduct(ctx context.Context, id string) (*repository.Product, []*basepb.ErrorMessage) {
+func (s *ProductService) GetProduct(ctx context.Context, id string) (*repository.Product, []*errorv1.ErrorItem) {
 	logger.Info("GetProduct called with ID")
 	id = strings.TrimSpace(id)
 	if id == "" {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrProductIDRequired, map[string]any{"product_id": "a non-empty string"})}
-		// return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrProductIDRequired)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrProductIDRequired, map[string]any{"product_id": "a non-empty string"})}
+		// return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrProductIDRequired)}
 	}
 
 	pid, err := uuid.Parse(id)
 	if err != nil {
 		// return nil, constants.ErrInvalidProductIDFormat.Status()
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidProductIDFormat)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidProductIDFormat)}
 	}
 	item, err := s.q.GetProduct(ctx, pid)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrProductNotFound.Messagef(id))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrProductNotFound.Messagef(id))}
 		}
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrGetProductInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrGetProductInternal.Messagef(err.Error()))}
 	}
 	return item, nil
 }
 
 // UpdateProduct validates input and updates a product.
-func (s *ProductService) UpdateProduct(ctx context.Context, in UpdateProductInput) (*repository.Product, []*basepb.ErrorMessage) {
+func (s *ProductService) UpdateProduct(ctx context.Context, in UpdateProductInput) (*repository.Product, []*errorv1.ErrorItem) {
 	in.ID = strings.TrimSpace(in.ID)
 	if in.ID == "" {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrProductIDRequired)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrProductIDRequired)}
 	}
 	pid, err := uuid.Parse(in.ID)
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidProductIDFormat)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidProductIDFormat)}
 	}
 	name := strings.TrimSpace(in.Name)
 	description := strings.TrimSpace(in.Description)
 	url := strings.TrimSpace(in.Url)
 	if name == "" {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrProductNameRequired)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrProductNameRequired)}
 	}
 	item, err := s.q.UpdateProduct(ctx, repository.UpdateProductParams{
 		ProductID:     pid,
@@ -111,31 +113,31 @@ func (s *ProductService) UpdateProduct(ctx context.Context, in UpdateProductInpu
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrProductNotFound.Messagef(in.ID))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrProductNotFound.Messagef(in.ID))}
 		}
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrUpdateProductInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrUpdateProductInternal.Messagef(err.Error()))}
 	}
 	return item, nil
 }
 
 // DeleteProduct performs soft-delete for a product.
-func (s *ProductService) DeleteProduct(ctx context.Context, id string, actorUserID string) []*basepb.ErrorMessage {
+func (s *ProductService) DeleteProduct(ctx context.Context, id string, actorUserID string) []*errorv1.ErrorItem {
 	id = strings.TrimSpace(id)
 	if id == "" {
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrProductIDRequired)}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrProductIDRequired)}
 	}
 	pid, err := uuid.Parse(id)
 	if err != nil {
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidProductIDFormat)}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidProductIDFormat)}
 	}
 	if _, err := s.q.DeleteProduct(ctx, repository.DeleteProductParams{
 		ProductID:     pid,
 		DeletedUserID: pgtype.Text{String: actorUserID, Valid: strings.TrimSpace(actorUserID) != ""},
 	}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrProductNotFound.Messagef(id))}
+			return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrProductNotFound.Messagef(id))}
 		}
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrDeleteProductInternal.Messagef(err.Error()))}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrDeleteProductInternal.Messagef(err.Error()))}
 	}
 	return nil
 }
@@ -143,8 +145,8 @@ func (s *ProductService) DeleteProduct(ctx context.Context, id string, actorUser
 type ListProductsInput struct {
 	Limit   int32
 	Offset  int32
-	Sorts   []*basepb.Sort
-	Filters []*basepb.Filter
+	Sorts   []*basev1.Sort
+	Filters []*basev1.Filter
 }
 
 // ListProducts returns a paginated product list using centralized query metadata

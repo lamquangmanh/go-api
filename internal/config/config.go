@@ -14,6 +14,7 @@ type Config struct {
 	HTTP     HTTPConfig     `yaml:"http"`
 	Database DatabaseConfig `yaml:"database"`
 	Logger   LoggerConfig   `yaml:"logger"`
+	JWT      JWTConfig      `yaml:"jwt"`
 }
 
 // GRPCConfig holds gRPC server configuration
@@ -44,14 +45,20 @@ type LoggerConfig struct {
 	Format string `yaml:"format"`
 }
 
+// JWTConfig holds JWT configuration.
+type JWTConfig struct {
+	Secret 				string `yaml:"secret"`
+	ExpirySeconds int  `yaml:"expiry_seconds"`
+}
+
 // applyDefaults fills optional config values with sensible defaults.
 // This keeps startup behavior predictable even when fields are omitted.
 func (c *Config) applyDefaults() {
 	if c.GRPC.Port == 0 {
-		c.GRPC.Port = 50051
+		c.GRPC.Port = 5100
 	}
 	if c.HTTP.Port == 0 {
-		c.HTTP.Port = 8080
+		c.HTTP.Port = 5101
 	}
 
 	if c.Database.Host == "" {
@@ -75,6 +82,13 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Logger.Format == "" {
 		c.Logger.Format = "json"
+	}
+
+	if c.JWT.Secret == "" {
+		c.JWT.Secret = "go-api-dev-secret"
+	}
+	if c.JWT.ExpirySeconds == 0 {
+		c.JWT.ExpirySeconds = 86400 // 1 day
 	}
 }
 
@@ -128,6 +142,9 @@ func (c *Config) applyEnvOverrides() {
 
 	c.Logger.Level = applyStringEnv(c.Logger.Level, "GOAPI_LOGGER_LEVEL", "LOGGER_LEVEL")
 	c.Logger.Format = applyStringEnv(c.Logger.Format, "GOAPI_LOGGER_FORMAT", "LOGGER_FORMAT")
+
+	c.JWT.Secret = applyStringEnv(c.JWT.Secret, "GOAPI_JWT_SECRET", "JWT_SECRET")
+	c.JWT.ExpirySeconds = applyIntEnv(c.JWT.ExpirySeconds, "GOAPI_JWT_EXPIRY_SECONDS", "JWT_EXPIRY_SECONDS")
 }
 
 // DSN builds a PostgreSQL DSN string from the database config fields

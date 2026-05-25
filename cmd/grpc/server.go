@@ -17,15 +17,16 @@ import (
 	applogger "go-api/internal/logger"
 	"go-api/internal/repository"
 	appsvc "go-api/internal/service"
-	actionpb "go-api/pkg/api/actionpb"
-	authpb "go-api/pkg/api/authpb"
-	menupb "go-api/pkg/api/menupb"
-	modulepb "go-api/pkg/api/modulepb"
-	permissionpb "go-api/pkg/api/permissionpb"
-	productpb "go-api/pkg/api/productpb"
-	resourcepb "go-api/pkg/api/resourcepb"
-	rolepb "go-api/pkg/api/rolepb"
-	userpb "go-api/pkg/api/userpb"
+
+	actionv1 "github.com/lamquangmanh/protobuf/gen/go/proto/action/v1"
+	authv1 "github.com/lamquangmanh/protobuf/gen/go/proto/auth/v1"
+	menuv1 "github.com/lamquangmanh/protobuf/gen/go/proto/menu/v1"
+	modulev1 "github.com/lamquangmanh/protobuf/gen/go/proto/module/v1"
+	permissionv1 "github.com/lamquangmanh/protobuf/gen/go/proto/permission/v1"
+	productv1 "github.com/lamquangmanh/protobuf/gen/go/proto/product/v1"
+	resourcev1 "github.com/lamquangmanh/protobuf/gen/go/proto/resource/v1"
+	rolev1 "github.com/lamquangmanh/protobuf/gen/go/proto/role/v1"
+	userv1 "github.com/lamquangmanh/protobuf/gen/go/proto/user/v1"
 
 	"google.golang.org/grpc"
 	health "google.golang.org/grpc/health"
@@ -48,6 +49,7 @@ func run() error {
 	}
 
 	cfg, err := config.Load(cfgPath)
+	// fmt.Printf("loaded config: %+v\n", cfg)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
@@ -87,58 +89,60 @@ func run() error {
 	// Wire up UserService: business logic layer + thin gRPC transport layer.
 	uss := appsvc.NewUserService(queries, pool)
 	us := appgrpc.NewUserHandler(uss)
-	userpb.RegisterUserServiceServer(s, us)
+	userv1.RegisterUserServiceServer(s, us)
 
 	// Wire up RoleService with separated business/service layer.
 	rss := appsvc.NewRoleService(queries)
 	rs := appgrpc.NewRoleHandler(rss)
-	rolepb.RegisterRoleServiceServer(s, rs)
+	rolev1.RegisterRoleServiceServer(s, rs)
 
 	// Wire up AuthService: authentication and token management
-	as := appgrpc.NewAuthHandler()
-	authpb.RegisterAuthServiceServer(s, as)
+	ass := appsvc.NewAuthService(queries, cfg)
+	as := appgrpc.NewAuthHandler(ass)
+	authv1.RegisterAuthServiceServer(s, as)
 
 	// Wire up MenuService: hierarchical menu structure for UI
 	ms := appgrpc.NewMenuHandler()
-	menupb.RegisterMenuServiceServer(s, ms)
+	menuv1.RegisterMenuServiceServer(s, ms)
 
 	// Wire up ResourceService: API resource and action management
 	ress := appsvc.NewResourceService(queries, pool)
 	res := appgrpc.NewResourceHandler(ress)
-	resourcepb.RegisterResourceServiceServer(s, res)
+	resourcev1.RegisterResourceServiceServer(s, res)
 
 	// Wire up ProductService
 	pros := appsvc.NewProductService(queries)
 	pro := appgrpc.NewProductHandler(pros)
-	productpb.RegisterProductServiceServer(s, pro)
+	productv1.RegisterProductServiceServer(s, pro)
 
 	// Wire up ModuleService
 	mods := appsvc.NewModuleService(queries)
 	mod := appgrpc.NewModuleHandler(mods, pros)
-	modulepb.RegisterModuleServiceServer(s, mod)
+	modulev1.RegisterModuleServiceServer(s, mod)
 
 	// Wire up ActionService
 	acts := appsvc.NewActionService(queries)
 	act := appgrpc.NewActionHandler(acts)
-	actionpb.RegisterActionServiceServer(s, act)
+	actionv1.RegisterActionServiceServer(s, act)
 
+	// @TODO: implement Permission Handler
 	// Wire up PermissionService: role-based permission management
-	ps := appgrpc.NewPermissionHandler()
-	permissionpb.RegisterPermissionServiceServer(s, ps)
+	// ps := appgrpc.NewPermissionHandler()
+	// permissionv1.RegisterPermissionServiceServer(s, ps)
 
 	// Register gRPC health service (used by load balancers and k8s probes)
 	hs := health.NewServer()
 	healthpb.RegisterHealthServer(s, hs)
 	hs.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
-	hs.SetServingStatus(userpb.UserService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
-	hs.SetServingStatus(rolepb.RoleService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
-	hs.SetServingStatus(authpb.AuthService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
-	hs.SetServingStatus(menupb.MenuService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
-	hs.SetServingStatus(resourcepb.ResourceService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
-	hs.SetServingStatus(permissionpb.PermissionService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
-	hs.SetServingStatus(productpb.ProductService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
-	hs.SetServingStatus(modulepb.ModuleService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
-	hs.SetServingStatus(actionpb.ActionService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
+	hs.SetServingStatus(userv1.UserService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
+	hs.SetServingStatus(rolev1.RoleService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
+	hs.SetServingStatus(authv1.AuthService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
+	hs.SetServingStatus(menuv1.MenuService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
+	hs.SetServingStatus(resourcev1.ResourceService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
+	hs.SetServingStatus(permissionv1.PermissionService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
+	hs.SetServingStatus(productv1.ProductService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
+	hs.SetServingStatus(modulev1.ModuleService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
+	hs.SetServingStatus(actionv1.ActionService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
 
 	// Register reflection service (enables dynamic service discovery via grpcurl, Postman, etc.)
 	reflection.Register(s)

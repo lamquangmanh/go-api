@@ -7,13 +7,13 @@ import (
 
 	"github.com/google/uuid"
 
-	basepb "go-api/pkg/api/basepb"
+	basev1 "github.com/lamquangmanh/protobuf/gen/go/proto/base/v1"
 )
 
 // NormalizeSorts validates sort fields against a table config and returns normalized SQL sort clauses.
 // Sample input:  sorts=[{Field:"name",Order:ASC}], cfg=products, maxSortFields=5
 // Sample output: [{Column:"name", Order:"ASC"}], nil
-func NormalizeSorts(sorts []*basepb.Sort, cfg QueryTableConfig, maxSortFields int) ([]SortClause, error) {
+func NormalizeSorts(sorts []*basev1.Sort, cfg QueryTableConfig, maxSortFields int) ([]SortClause, error) {
 	if maxSortFields > 0 && len(sorts) > maxSortFields {
 		return nil, fmt.Errorf("sort fields exceed max allowed: %d", maxSortFields)
 	}
@@ -38,9 +38,9 @@ func NormalizeSorts(sorts []*basepb.Sort, cfg QueryTableConfig, maxSortFields in
 
 		order := "DESC"
 		switch sort.GetOrder() {
-		case basepb.SortOrder_SORT_ORDER_UNSPECIFIED, basepb.SortOrder_SORT_ORDER_DESC:
+		case basev1.SortOrder_SORT_ORDER_UNSPECIFIED, basev1.SortOrder_SORT_ORDER_DESC:
 			order = "DESC"
-		case basepb.SortOrder_SORT_ORDER_ASC:
+		case basev1.SortOrder_SORT_ORDER_ASC:
 			order = "ASC"
 		default:
 			return nil, fmt.Errorf("invalid sort order for field: %s", field)
@@ -59,7 +59,7 @@ func NormalizeSorts(sorts []*basepb.Sort, cfg QueryTableConfig, maxSortFields in
 // NormalizeFilters validates filters against a table config and converts proto values into typed SQL args.
 // Sample input:  filters=[{Field:"productId",Operator:IN,StringValues:["uuid-1","uuid-2"]}]
 // Sample output: [{Column:"product_id",DataType:UUID,Operator:IN,Value:[]uuid.UUID{...}}], nil
-func NormalizeFilters(filters []*basepb.Filter, cfg QueryTableConfig, maxFilterFields int) ([]FilterClause, error) {
+func NormalizeFilters(filters []*basev1.Filter, cfg QueryTableConfig, maxFilterFields int) ([]FilterClause, error) {
 	if maxFilterFields > 0 && len(filters) > maxFilterFields {
 		return nil, fmt.Errorf("filter fields exceed max allowed: %d", maxFilterFields)
 	}
@@ -77,8 +77,8 @@ func NormalizeFilters(filters []*basepb.Filter, cfg QueryTableConfig, maxFilterF
 		}
 
 		operator := filter.GetOperator()
-		if operator == basepb.FilterOperator_FILTER_OPERATOR_UNSPECIFIED {
-			operator = basepb.FilterOperator_FILTER_OPERATOR_EQUAL
+		if operator == basev1.FilterOperator_FILTER_OPERATOR_UNSPECIFIED {
+			operator = basev1.FilterOperator_FILTER_OPERATOR_EQUAL
 		}
 		if _, ok := fieldCfg.AllowedOperators[operator]; !ok {
 			return nil, fmt.Errorf("operator is not allowed for field %s", field)
@@ -151,23 +151,23 @@ func BuildListAndCountQueries(cfg QueryTableConfig, sorts []SortClause, filters 
 func buildFilterCondition(filter FilterClause, argPos int) string {
 	placeholder := fmt.Sprintf("$%d", argPos)
 	switch filter.Operator {
-	case basepb.FilterOperator_FILTER_OPERATOR_EQUAL:
+	case basev1.FilterOperator_FILTER_OPERATOR_EQUAL:
 		return fmt.Sprintf("%s = %s", filter.Column, placeholder)
-	case basepb.FilterOperator_FILTER_OPERATOR_NOT_EQUAL:
+	case basev1.FilterOperator_FILTER_OPERATOR_NOT_EQUAL:
 		return fmt.Sprintf("%s <> %s", filter.Column, placeholder)
-	case basepb.FilterOperator_FILTER_OPERATOR_GREATER_THAN:
+	case basev1.FilterOperator_FILTER_OPERATOR_GREATER_THAN:
 		return fmt.Sprintf("%s > %s", filter.Column, placeholder)
-	case basepb.FilterOperator_FILTER_OPERATOR_LESS_THAN:
+	case basev1.FilterOperator_FILTER_OPERATOR_LESS_THAN:
 		return fmt.Sprintf("%s < %s", filter.Column, placeholder)
-	case basepb.FilterOperator_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL:
+	case basev1.FilterOperator_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL:
 		return fmt.Sprintf("%s >= %s", filter.Column, placeholder)
-	case basepb.FilterOperator_FILTER_OPERATOR_LESS_THAN_OR_EQUAL:
+	case basev1.FilterOperator_FILTER_OPERATOR_LESS_THAN_OR_EQUAL:
 		return fmt.Sprintf("%s <= %s", filter.Column, placeholder)
-	case basepb.FilterOperator_FILTER_OPERATOR_LIKE:
+	case basev1.FilterOperator_FILTER_OPERATOR_LIKE:
 		return fmt.Sprintf("%s ILIKE '%%' || %s || '%%'", filter.Column, placeholder)
-	case basepb.FilterOperator_FILTER_OPERATOR_IN:
+	case basev1.FilterOperator_FILTER_OPERATOR_IN:
 		return fmt.Sprintf("%s = ANY(%s)", filter.Column, placeholder)
-	case basepb.FilterOperator_FILTER_OPERATOR_NOT_IN:
+	case basev1.FilterOperator_FILTER_OPERATOR_NOT_IN:
 		return fmt.Sprintf("NOT (%s = ANY(%s))", filter.Column, placeholder)
 	default:
 		return fmt.Sprintf("%s = %s", filter.Column, placeholder)
@@ -177,8 +177,8 @@ func buildFilterCondition(filter FilterClause, argPos int) string {
 // ParseFilterValue parses filter values from proto into the correct Go type for SQL binding.
 // Sample input:  dataType=FieldDataTypeUUID, operator=IN, StringValues=["550e8400-e29b-41d4-a716-446655440000"]
 // Sample output: []uuid.UUID{550e8400-e29b-41d4-a716-446655440000}, nil
-func ParseFilterValue(filter *basepb.Filter, dataType FieldDataType, operator basepb.FilterOperator) (any, error) {
-	isArrayOperator := operator == basepb.FilterOperator_FILTER_OPERATOR_IN || operator == basepb.FilterOperator_FILTER_OPERATOR_NOT_IN
+func ParseFilterValue(filter *basev1.Filter, dataType FieldDataType, operator basev1.FilterOperator) (any, error) {
+	isArrayOperator := operator == basev1.FilterOperator_FILTER_OPERATOR_IN || operator == basev1.FilterOperator_FILTER_OPERATOR_NOT_IN
 
 	singleString := strings.TrimSpace(filter.GetStringValue())
 	stringValues := filter.GetStringValues()

@@ -10,8 +10,9 @@ import (
 	"testing"
 
 	applogger "go-api/internal/logger"
-	basepb "go-api/pkg/api/basepb"
-	userpb "go-api/pkg/api/userpb"
+
+	basev1 "github.com/lamquangmanh/protobuf/gen/go/proto/base/v1"
+	userv1 "github.com/lamquangmanh/protobuf/gen/go/proto/user/v1"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -90,7 +91,7 @@ func TestUnaryServerInterceptor_LogsAllResponseErrors(t *testing.T) {
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("x-request-id", "req-response-error"))
 
 	resp, err := interceptor(ctx, nil, &grpc.UnaryServerInfo{FullMethod: "/go.api.user.v1.UserService/CreateUser"}, func(context.Context, any) (any, error) {
-		return &userpb.CreateSuccess{Errors: []*basepb.ErrorMessage{
+		return &userv1.CreateUserResponse{Errors: []*basev1.ErrorMessage{
 			{Code: int32(codes.InvalidArgument), Message: "username is required"},
 			{Code: int32(codes.AlreadyExists), Message: "email already exists"},
 		}}, nil

@@ -11,10 +11,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"go-api/internal/repository"
-	basepb "go-api/pkg/api/basepb"
-	userpb "go-api/pkg/api/userpb"
 	"go-api/pkg/constants"
 	"go-api/pkg/utils"
+
+	basev1 "github.com/lamquangmanh/protobuf/gen/go/proto/base/v1"
+	errorv1 "github.com/lamquangmanh/protobuf/gen/go/proto/error/v1"
+	userv1 "github.com/lamquangmanh/protobuf/gen/go/proto/user/v1"
 )
 
 type UserService struct {
@@ -32,7 +34,7 @@ type CreateUserInput struct {
 	Password    string
 	Phone       string
 	Avatar      string
-	Status      userpb.UserStatus
+	Status      userv1.UserStatus
 	RoleIDs     []string
 	ActorUserID string
 }
@@ -43,7 +45,7 @@ type UpdateUserInput struct {
 	Email       string
 	Phone       string
 	Avatar      string
-	Status      userpb.UserStatus
+	Status      userv1.UserStatus
 	RoleIDs     []string
 	ActorUserID string
 }
@@ -52,14 +54,14 @@ type ListUsersInput struct {
 	IDs     []string
 	Limit   int32
 	Offset  int32
-	Sorts   []*basepb.Sort
-	Filters []*basepb.Filter
+	Sorts   []*basev1.Sort
+	Filters []*basev1.Filter
 }
 
-func (s *UserService) CreateUser(ctx context.Context, in CreateUserInput) (*repository.User, []*basepb.ErrorMessage) {
+func (s *UserService) CreateUser(ctx context.Context, in CreateUserInput) (*repository.User, []*errorv1.ErrorItem) {
 	username := strings.TrimSpace(in.Username)
 	email := strings.TrimSpace(in.Email)
-	errMsgs := make([]*basepb.ErrorMessage, 0, 2)
+	errMsgs := make([]*errorv1.ErrorItem, 0, 2)
 
 	if username == "" {
 		errMsgs = append(errMsgs, utils.ErrMsg(constants.ErrUsernameRequired))
@@ -76,19 +78,19 @@ func (s *UserService) CreateUser(ctx context.Context, in CreateUserInput) (*repo
 	}
 
 	if u, err := s.q.GetUserByEmail(ctx, strings.ToLower(email)); err == nil && u != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrEmailAlreadyExists)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrEmailAlreadyExists)}
 	} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrGetUserInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrGetUserInternal.Messagef(err.Error()))}
 	}
 	if u, err := s.q.GetUserByUsername(ctx, username); err == nil && u != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrUsernameAlreadyExists)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrUsernameAlreadyExists)}
 	} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrGetUserInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrGetUserInternal.Messagef(err.Error()))}
 	}
 
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrBeginTransaction.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrBeginTransaction.Messagef(err.Error()))}
 	}
 	defer tx.Rollback(ctx)
 	q := s.q.WithTx(tx)
@@ -97,17 +99,17 @@ func (s *UserService) CreateUser(ctx context.Context, in CreateUserInput) (*repo
 	for _, r := range in.RoleIDs {
 		rid, err := uuid.Parse(strings.TrimSpace(r))
 		if err != nil {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidRoleIDFormatIn.Messagef(r))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidRoleIDFormatIn.Messagef(r))}
 		}
 		roleUUIDs = append(roleUUIDs, rid)
 	}
 	if len(roleUUIDs) > 0 {
 		existing, err := q.GetRolesByIDs(ctx, roleUUIDs)
 		if err != nil {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrValidateRoles.Messagef(err.Error()))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrValidateRoles.Messagef(err.Error()))}
 		}
 		if len(existing) != len(roleUUIDs) {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrRoleIDsNotExist)}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrRoleIDsNotExist)}
 		}
 	}
 
@@ -122,7 +124,7 @@ func (s *UserService) CreateUser(ctx context.Context, in CreateUserInput) (*repo
 		UpdatedUserID: pgtype.Text{String: in.ActorUserID, Valid: strings.TrimSpace(in.ActorUserID) != ""},
 	})
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrCreateUserInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrCreateUserInternal.Messagef(err.Error()))}
 	}
 
 	for _, rid := range roleUUIDs {
@@ -132,59 +134,59 @@ func (s *UserService) CreateUser(ctx context.Context, in CreateUserInput) (*repo
 			CreatedUserID: pgtype.Text{String: in.ActorUserID, Valid: strings.TrimSpace(in.ActorUserID) != ""},
 			UpdatedUserID: pgtype.Text{String: in.ActorUserID, Valid: strings.TrimSpace(in.ActorUserID) != ""},
 		}); err != nil {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrAddUserRoleMapping.Messagef(err.Error()))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrAddUserRoleMapping.Messagef(err.Error()))}
 		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrCommitTransaction.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrCommitTransaction.Messagef(err.Error()))}
 	}
 	return user, nil
 }
 
-func (s *UserService) GetUser(ctx context.Context, id string) (*repository.User, []*basepb.ErrorMessage) {
+func (s *UserService) GetUser(ctx context.Context, id string) (*repository.User, []*errorv1.ErrorItem) {
 	uid, err := uuid.Parse(strings.TrimSpace(id))
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidUserIDFormat)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidUserIDFormat)}
 	}
 	u, err := s.q.GetUser(ctx, uid)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrUserNotFound.Messagef(id))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrUserNotFound.Messagef(id))}
 		}
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrGetUserInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrGetUserInternal.Messagef(err.Error()))}
 	}
 	return u, nil
 }
 
-func (s *UserService) UpdateUser(ctx context.Context, in UpdateUserInput) (*repository.User, []*basepb.ErrorMessage) {
+func (s *UserService) UpdateUser(ctx context.Context, in UpdateUserInput) (*repository.User, []*errorv1.ErrorItem) {
 	if strings.TrimSpace(in.ID) == "" {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrUserIDRequired)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrUserIDRequired)}
 	}
 	uid, err := uuid.Parse(strings.TrimSpace(in.ID))
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidUserIDFormat)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidUserIDFormat)}
 	}
 
 	roleUUIDs := make([]uuid.UUID, 0, len(in.RoleIDs))
 	for _, r := range in.RoleIDs {
 		rid, err := uuid.Parse(strings.TrimSpace(r))
 		if err != nil {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidRoleIDFormatIn.Messagef(r))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidRoleIDFormatIn.Messagef(r))}
 		}
 		roleUUIDs = append(roleUUIDs, rid)
 	}
 
 	if strings.TrimSpace(in.Username) != "" && !utils.ValidateUsername(in.Username) {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrUsernameInvalid)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrUsernameInvalid)}
 	}
 	if strings.TrimSpace(in.Email) != "" && !utils.ValidateEmail(in.Email) {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrEmailInvalid)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrEmailInvalid)}
 	}
 
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrBeginTransaction.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrBeginTransaction.Messagef(err.Error()))}
 	}
 	defer tx.Rollback(ctx)
 	q := s.q.WithTx(tx)
@@ -192,9 +194,9 @@ func (s *UserService) UpdateUser(ctx context.Context, in UpdateUserInput) (*repo
 	existing, err := q.GetUser(ctx, uid)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrUserNotFound.Messagef(in.ID))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrUserNotFound.Messagef(in.ID))}
 		}
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrGetUserInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrGetUserInternal.Messagef(err.Error()))}
 	}
 
 	newUsername := existing.UserName
@@ -214,7 +216,7 @@ func (s *UserService) UpdateUser(ctx context.Context, in UpdateUserInput) (*repo
 		newAvatar = pgtype.Text{String: strings.TrimSpace(in.Avatar), Valid: true}
 	}
 	newStatus := existing.Status
-	if in.Status != userpb.UserStatus_USER_STATUS_UNSPECIFIED {
+	if in.Status != userv1.UserStatus_USER_STATUS_UNSPECIFIED {
 		newStatus = toRepositoryUserStatus(in.Status)
 	}
 
@@ -230,13 +232,13 @@ func (s *UserService) UpdateUser(ctx context.Context, in UpdateUserInput) (*repo
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrUserNotFound.Messagef(in.ID))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrUserNotFound.Messagef(in.ID))}
 		}
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrUpdateUserInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrUpdateUserInternal.Messagef(err.Error()))}
 	}
 
-	if err := q.DeleteUserRoleMappingsByUserID(ctx, uid); err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrClearUserRoleMappings.Messagef(err.Error()))}
+		if err := q.DeleteUserRoleMappingsByUserID(ctx, uid); err != nil {
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrClearUserRoleMappings.Messagef(err.Error()))}
 	}
 	for _, rid := range roleUUIDs {
 		if _, err := q.InsertUserRole(ctx, repository.InsertUserRoleParams{
@@ -245,32 +247,32 @@ func (s *UserService) UpdateUser(ctx context.Context, in UpdateUserInput) (*repo
 			CreatedUserID: pgtype.Text{String: in.ActorUserID, Valid: strings.TrimSpace(in.ActorUserID) != ""},
 			UpdatedUserID: pgtype.Text{String: in.ActorUserID, Valid: strings.TrimSpace(in.ActorUserID) != ""},
 		}); err != nil {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrAddUserRoleMapping.Messagef(err.Error()))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrAddUserRoleMapping.Messagef(err.Error()))}
 		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrCommitTransaction.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrCommitTransaction.Messagef(err.Error()))}
 	}
 	return user, nil
 }
 
-func (s *UserService) DeleteUser(ctx context.Context, id string, actorUserID string) []*basepb.ErrorMessage {
+func (s *UserService) DeleteUser(ctx context.Context, id string, actorUserID string) []*errorv1.ErrorItem {
 	uid, err := uuid.Parse(strings.TrimSpace(id))
 	if err != nil {
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidUserIDFormat)}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidUserIDFormat)}
 	}
 	if _, err := s.q.GetUser(ctx, uid); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrUserNotFound.Messagef(id))}
+			return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrUserNotFound.Messagef(id))}
 		}
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrGetUserInternal.Messagef(err.Error()))}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrGetUserInternal.Messagef(err.Error()))}
 	}
 	if _, err := s.q.DeleteUser(ctx, repository.DeleteUserParams{
 		UserID:        uid,
 		DeletedUserID: pgtype.Text{String: actorUserID, Valid: strings.TrimSpace(actorUserID) != ""},
 	}); err != nil {
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrDeleteUserInternal.Messagef(err.Error()))}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrDeleteUserInternal.Messagef(err.Error()))}
 	}
 	return nil
 }
@@ -332,20 +334,20 @@ func (s *UserService) ListUserRoles(ctx context.Context, userID string, limit in
 	return roles, total, limit, offset, nil
 }
 
-func (s *UserService) ChangePassword(ctx context.Context, userID string, password string) []*basepb.ErrorMessage {
+func (s *UserService) ChangePassword(ctx context.Context, userID string, password string) []*errorv1.ErrorItem {
 	uid, err := uuid.Parse(strings.TrimSpace(userID))
 	if err != nil {
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidUserIDFormat)}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidUserIDFormat)}
 	}
 	existing, err := s.q.GetUser(ctx, uid)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrUserNotFound.Messagef(userID))}
+			return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrUserNotFound.Messagef(userID))}
 		}
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrGetUserInternal.Messagef(err.Error()))}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrGetUserInternal.Messagef(err.Error()))}
 	}
 	if strings.TrimSpace(password) == "" {
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrPasswordRequired)}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrPasswordRequired)}
 	}
 	if _, err := s.q.UpdateUser(ctx, repository.UpdateUserParams{
 		UserID:        uid,
@@ -357,16 +359,16 @@ func (s *UserService) ChangePassword(ctx context.Context, userID string, passwor
 		Status:        existing.Status,
 		UpdatedUserID: pgtype.Text{String: userID, Valid: true},
 	}); err != nil {
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrUpdateUserInternal.Messagef(err.Error()))}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrUpdateUserInternal.Messagef(err.Error()))}
 	}
 	return nil
 }
 
-func toRepositoryUserStatus(statusValue userpb.UserStatus) repository.UserStatus {
+func toRepositoryUserStatus(statusValue userv1.UserStatus) repository.UserStatus {
 	switch statusValue {
-	case userpb.UserStatus_USER_STATUS_DEACTIVATED:
+	case userv1.UserStatus_USER_STATUS_DEACTIVATED:
 		return repository.UserStatusDEACTIVATED
-	case userpb.UserStatus_USER_STATUS_DELETED:
+	case userv1.UserStatus_USER_STATUS_DELETED:
 		return repository.UserStatusDELETED
 	default:
 		return repository.UserStatusACTIVE

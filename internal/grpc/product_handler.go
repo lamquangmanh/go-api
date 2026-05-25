@@ -7,14 +7,18 @@ import (
 
 	"go-api/internal/repository"
 	productsvc "go-api/internal/service"
-	basepb "go-api/pkg/api/basepb"
-	productpb "go-api/pkg/api/productpb"
 	"go-api/pkg/constants"
+	"go-api/pkg/logger"
 	"go-api/pkg/utils"
+
+	basev1 "github.com/lamquangmanh/protobuf/gen/go/proto/base/v1"
+	errorv1 "github.com/lamquangmanh/protobuf/gen/go/proto/error/v1"
+	productv1 "github.com/lamquangmanh/protobuf/gen/go/proto/product/v1"
+	"google.golang.org/grpc/codes"
 )
 
 type ProductHandler struct {
-	productpb.UnimplementedProductServiceServer
+	productv1.UnimplementedProductServiceServer
 	productService *productsvc.ProductService
 }
 
@@ -24,7 +28,7 @@ func NewProductHandler(productService *productsvc.ProductService) *ProductHandle
 }
 
 // productRepoToProto maps repository product model to protobuf response model.
-func productRepoToProto(item *repository.Product) *productpb.Product {
+func productRepoToProto(item *repository.Product) *productv1.Product {
 	url := ""
 	if item.Url.Valid {
 		url = item.Url.String
@@ -54,7 +58,7 @@ func productRepoToProto(item *repository.Product) *productpb.Product {
 		deletedUserID = item.DeletedUserID.String
 	}
 
-	return &productpb.Product{
+	return &productv1.Product{
 		ProductId:     item.ProductID.String(),
 		Name:          item.Name,
 		Description:   description,
@@ -69,21 +73,21 @@ func productRepoToProto(item *repository.Product) *productpb.Product {
 }
 
 // GetProduct returns a single product by ID.
-func (h *ProductHandler) GetProduct(ctx context.Context, req *productpb.GetProductRequest) (*productpb.GetProductResponse, error) {
+func (h *ProductHandler) GetProduct(ctx context.Context, req *productv1.GetProductRequest) (*productv1.GetProductResponse, error) {
 	item, errors := h.productService.GetProduct(ctx, req.GetProductId())
 	if errors != nil {
-		return &productpb.GetProductResponse{
-			Errors: errors,
-		}, nil
+		logger.Error("GetProduct request has errors")
+		_, err := utils.ResponseError(codes.InvalidArgument, errors)
+		return nil, err
 	}
 
-	return &productpb.GetProductResponse{
+	return &productv1.GetProductResponse{
 		Product: productRepoToProto(item),
 	}, nil
 }
 
 // GetProducts returns paginated products with validated sorts and filters.
-func (h *ProductHandler) GetProducts(ctx context.Context, req *productpb.GetProductsRequest) (*productpb.GetProductsResponse, error) {
+func (h *ProductHandler) GetProducts(ctx context.Context, req *productv1.GetProductsRequest) (*productv1.GetProductsResponse, error) {
 	limit := int32(20)
 	page := int32(1)
 	if req.GetPagination() != nil {
@@ -97,10 +101,10 @@ func (h *ProductHandler) GetProducts(ctx context.Context, req *productpb.GetProd
 	offset := (page - 1) * limit
 
 	// Clone proto sorts and filters directly
-	sorts := make([]*basepb.Sort, 0, len(req.GetSorts()))
+	sorts := make([]*basev1.Sort, 0, len(req.GetSorts()))
 	sorts = append(sorts, req.GetSorts()...)
 
-	filters := make([]*basepb.Filter, 0, len(req.GetFilters()))
+	filters := make([]*basev1.Filter, 0, len(req.GetFilters()))
 	filters = append(filters, req.GetFilters()...)
 
 	items, total, appliedLimit, appliedOffset, err := h.productService.ListProducts(ctx, productsvc.ListProductsInput{
@@ -110,9 +114,9 @@ func (h *ProductHandler) GetProducts(ctx context.Context, req *productpb.GetProd
 		Filters: filters,
 	})
 	if err != nil {
-		return &productpb.GetProductsResponse{Data: nil, Pagination: &basepb.PaginationResponse{}}, nil
+		return &productv1.GetProductsResponse{Data: nil, Pagination: &basev1.PaginationResponse{}}, nil
 	}
-	data := make([]*productpb.Product, 0, len(items))
+	data := make([]*productv1.Product, 0, len(items))
 	for _, item := range items {
 		data = append(data, productRepoToProto(item))
 	}
@@ -121,9 +125,9 @@ func (h *ProductHandler) GetProducts(ctx context.Context, req *productpb.GetProd
 		totalPages = 0
 	}
 
-	return &productpb.GetProductsResponse{
+	return &productv1.GetProductsResponse{
 		Data: data,
-		Pagination: &basepb.PaginationResponse{
+		Pagination: &basev1.PaginationResponse{
 			Page:       (appliedOffset / appliedLimit) + 1,
 			Limit:      appliedLimit,
 			TotalItems: int32(total),
@@ -134,11 +138,11 @@ func (h *ProductHandler) GetProducts(ctx context.Context, req *productpb.GetProd
 }
 
 // CreateProduct validates payload and creates a new product.
-func (h *ProductHandler) CreateProduct(ctx context.Context, req *productpb.CreateProductRequest) (*productpb.CreateSuccess, error) {
+func (h *ProductHandler) CreateProduct(ctx context.Context, req *productv1.CreateProductRequest) (*productv1.CreateProductResponse, error) {
 	if req.GetProduct() == nil {
-		return &productpb.CreateSuccess{
-			Errors: []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrProductPayloadRequired)},
-		}, nil
+		logger.Error("CreateProduct request is nil")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrProductPayloadRequired)})
+		return nil, err
 	}
 	item, errors := h.productService.CreateProduct(ctx, productsvc.CreateProductInput{
 		Name:        req.GetProduct().GetName(),
@@ -147,37 +151,47 @@ func (h *ProductHandler) CreateProduct(ctx context.Context, req *productpb.Creat
 		ActorUserID: req.GetUserId(),
 	})
 	if errors != nil {
-		return &productpb.CreateSuccess{
-			Errors: errors,
-		}, nil
+		logger.Error("CreateProduct request has errors")
+		_, err := utils.ResponseError(codes.InvalidArgument, errors)
+		return nil, err
 	}
-	return &productpb.CreateSuccess{
+	return &productv1.CreateProductResponse{
 		Product: productRepoToProto(item),
 	}, nil
 }
 
 // UpdateProduct updates an existing product.
-func (h *ProductHandler) UpdateProduct(ctx context.Context, req *productpb.UpdateProductRequest) (*basepb.UpdateSuccess, error) {
+func (h *ProductHandler) UpdateProduct(ctx context.Context, req *productv1.UpdateProductRequest) (*productv1.UpdateProductResponse, error) {
 	if req.GetProduct() == nil {
-		return utils.UpdateErr(utils.ErrMsg(constants.ErrProductPayloadRequired)), nil
+		logger.Error("UpdateProduct request is nil")
+		_, err := utils.ResponseError(codes.InvalidArgument, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrProductPayloadRequired)})
+		return nil, err
 	}
-	_, err := h.productService.UpdateProduct(ctx, productsvc.UpdateProductInput{
+	_, errors := h.productService.UpdateProduct(ctx, productsvc.UpdateProductInput{
 		ID:          req.GetProduct().GetProductId(),
 		Name:        req.GetProduct().GetName(),
 		Description: req.GetProduct().GetDescription(),
 		Url:         req.GetProduct().GetUrl(),
 		ActorUserID: req.GetUserId(),
 	})
-	if err != nil {
-		return utils.UpdateErr(err...), nil
+	if errors != nil {
+		logger.Error("UpdateProduct request has errors")
+		_, err := utils.ResponseError(codes.InvalidArgument, errors)
+		return nil, err
 	}
-	return utils.UpdateOK(), nil
+	return &productv1.UpdateProductResponse{
+		Success: true,
+	}, nil
 }
 
 // DeleteProduct performs a soft-delete for a product.
-func (h *ProductHandler) DeleteProduct(ctx context.Context, req *productpb.DeleteProductRequest) (*basepb.DeleteSuccess, error) {
-	if err := h.productService.DeleteProduct(ctx, req.GetProductId(), req.GetUserId()); err != nil {
-		return utils.DeleteErr(err...), nil
+func (h *ProductHandler) DeleteProduct(ctx context.Context, req *productv1.DeleteProductRequest) (*productv1.DeleteProductResponse, error) {
+	if errors := h.productService.DeleteProduct(ctx, req.GetProductId(), req.GetUserId()); errors != nil {
+		logger.Error("DeleteProduct request has errors")
+		_, err := utils.ResponseError(codes.InvalidArgument, errors)
+		return nil, err
 	}
-	return utils.DeleteOK(), nil
+	return &productv1.DeleteProductResponse{
+		Success: true,
+	}, nil
 }

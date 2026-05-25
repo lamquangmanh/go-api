@@ -60,13 +60,14 @@ func UnaryServerInterceptor(log *slog.Logger) grpc.UnaryServerInterceptor {
 			attrs = append(attrs,
 				slog.Int("response_error_count", count),
 				slog.Any("response_errors", responseErrors),
+				slog.Any("response_data", resp),
 			)
-			log.Warn("grpc request completed with response errors", attrs...)
+			log.Error("grpc request completed with response errors", attrs...)
 			return resp, nil
 		}
 
 		// Success path: log at info level.
-		log.Info("grpc request completed", attrs...)
+		log.Info("grpc request completed: ", attrs...)
 		return resp, nil
 	}
 }

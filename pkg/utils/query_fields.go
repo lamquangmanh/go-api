@@ -1,6 +1,6 @@
 package utils
 
-import basepb "go-api/pkg/api/basepb"
+import basev1 "github.com/lamquangmanh/protobuf/gen/go/proto/base/v1"
 
 // FieldDataType declares supported data kinds for filter value parsing.
 type FieldDataType string
@@ -15,7 +15,7 @@ type QueryField struct {
 	Column           string
 	DataType         FieldDataType
 	Sortable         bool
-	AllowedOperators map[basepb.FilterOperator]struct{}
+	AllowedOperators map[basev1.FilterOperator]struct{}
 }
 
 // SortClause represents one validated ORDER BY segment.
@@ -28,7 +28,7 @@ type SortClause struct {
 type FilterClause struct {
 	Column   string
 	DataType FieldDataType
-	Operator basepb.FilterOperator
+	Operator basev1.FilterOperator
 	Value    any
 }
 
@@ -53,8 +53,8 @@ const (
 // ops builds a set-like map from filter operators for quick membership checks.
 // Sample input:  ops(EQUAL, LIKE)
 // Sample output: map[EQUAL:{} LIKE:{}]
-func ops(operators ...basepb.FilterOperator) map[basepb.FilterOperator]struct{} {
-	result := make(map[basepb.FilterOperator]struct{}, len(operators))
+func ops(operators ...basev1.FilterOperator) map[basev1.FilterOperator]struct{} {
+	result := make(map[basev1.FilterOperator]struct{}, len(operators))
 	for _, operator := range operators {
 		result[operator] = struct{}{}
 	}
@@ -68,15 +68,15 @@ var tableQueryConfigs = map[string]QueryTableConfig{
 		SoftDeleteColumn: "deleted_at",
 		DefaultSorts:     []SortClause{{Column: "created_at", Order: "DESC"}},
 		Fields: map[string]QueryField{
-			"product_id":  {Column: "product_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_NOT_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN, basepb.FilterOperator_FILTER_OPERATOR_NOT_IN)},
-			"productId":   {Column: "product_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_NOT_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN, basepb.FilterOperator_FILTER_OPERATOR_NOT_IN)},
-			"name":        {Column: "name", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_NOT_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_LIKE, basepb.FilterOperator_FILTER_OPERATOR_IN, basepb.FilterOperator_FILTER_OPERATOR_NOT_IN)},
-			"description": {Column: "description", DataType: FieldDataTypeText, Sortable: false, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_NOT_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_LIKE)},
-			"url":         {Column: "url", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_NOT_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_LIKE, basepb.FilterOperator_FILTER_OPERATOR_IN, basepb.FilterOperator_FILTER_OPERATOR_NOT_IN)},
-			"created_at":  {Column: "created_at", DataType: FieldDataTypeTimestamp, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_NOT_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_GREATER_THAN, basepb.FilterOperator_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_LESS_THAN, basepb.FilterOperator_FILTER_OPERATOR_LESS_THAN_OR_EQUAL)},
-			"createdAt":   {Column: "created_at", DataType: FieldDataTypeTimestamp, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_NOT_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_GREATER_THAN, basepb.FilterOperator_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_LESS_THAN, basepb.FilterOperator_FILTER_OPERATOR_LESS_THAN_OR_EQUAL)},
-			"updated_at":  {Column: "updated_at", DataType: FieldDataTypeTimestamp, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_NOT_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_GREATER_THAN, basepb.FilterOperator_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_LESS_THAN, basepb.FilterOperator_FILTER_OPERATOR_LESS_THAN_OR_EQUAL)},
-			"updatedAt":   {Column: "updated_at", DataType: FieldDataTypeTimestamp, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_NOT_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_GREATER_THAN, basepb.FilterOperator_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_LESS_THAN, basepb.FilterOperator_FILTER_OPERATOR_LESS_THAN_OR_EQUAL)},
+			"product_id":  {Column: "product_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_NOT_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN, basev1.FilterOperator_FILTER_OPERATOR_NOT_IN)},
+			"productId":   {Column: "product_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_NOT_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN, basev1.FilterOperator_FILTER_OPERATOR_NOT_IN)},
+			"name":        {Column: "name", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_NOT_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_LIKE, basev1.FilterOperator_FILTER_OPERATOR_IN, basev1.FilterOperator_FILTER_OPERATOR_NOT_IN)},
+			"description": {Column: "description", DataType: FieldDataTypeText, Sortable: false, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_NOT_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_LIKE)},
+			"url":         {Column: "url", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_NOT_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_LIKE, basev1.FilterOperator_FILTER_OPERATOR_IN, basev1.FilterOperator_FILTER_OPERATOR_NOT_IN)},
+			"created_at":  {Column: "created_at", DataType: FieldDataTypeTimestamp, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_NOT_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_GREATER_THAN, basev1.FilterOperator_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_LESS_THAN, basev1.FilterOperator_FILTER_OPERATOR_LESS_THAN_OR_EQUAL)},
+			"createdAt":   {Column: "created_at", DataType: FieldDataTypeTimestamp, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_NOT_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_GREATER_THAN, basev1.FilterOperator_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_LESS_THAN, basev1.FilterOperator_FILTER_OPERATOR_LESS_THAN_OR_EQUAL)},
+			"updated_at":  {Column: "updated_at", DataType: FieldDataTypeTimestamp, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_NOT_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_GREATER_THAN, basev1.FilterOperator_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_LESS_THAN, basev1.FilterOperator_FILTER_OPERATOR_LESS_THAN_OR_EQUAL)},
+			"updatedAt":   {Column: "updated_at", DataType: FieldDataTypeTimestamp, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_NOT_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_GREATER_THAN, basev1.FilterOperator_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_LESS_THAN, basev1.FilterOperator_FILTER_OPERATOR_LESS_THAN_OR_EQUAL)},
 		},
 	},
 	TableModules: {
@@ -85,11 +85,11 @@ var tableQueryConfigs = map[string]QueryTableConfig{
 		SoftDeleteColumn: "deleted_at",
 		DefaultSorts:     []SortClause{{Column: "created_at", Order: "DESC"}},
 		Fields: map[string]QueryField{
-			"module_id":  {Column: "module_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
-			"moduleId":   {Column: "module_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
-			"name":       {Column: "name", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_LIKE)},
-			"product_id": {Column: "product_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
-			"productId":  {Column: "product_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
+			"module_id":  {Column: "module_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
+			"moduleId":   {Column: "module_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
+			"name":       {Column: "name", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_LIKE)},
+			"product_id": {Column: "product_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
+			"productId":  {Column: "product_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
 		},
 	},
 	TableResources: {
@@ -98,11 +98,11 @@ var tableQueryConfigs = map[string]QueryTableConfig{
 		SoftDeleteColumn: "deleted_at",
 		DefaultSorts:     []SortClause{{Column: "created_at", Order: "DESC"}},
 		Fields: map[string]QueryField{
-			"resource_id": {Column: "resource_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
-			"resourceId":  {Column: "resource_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
-			"module_id":   {Column: "module_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
-			"moduleId":    {Column: "module_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
-			"name":        {Column: "name", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_LIKE)},
+			"resource_id": {Column: "resource_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
+			"resourceId":  {Column: "resource_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
+			"module_id":   {Column: "module_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
+			"moduleId":    {Column: "module_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
+			"name":        {Column: "name", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_LIKE)},
 		},
 	},
 	TableActions: {
@@ -111,13 +111,13 @@ var tableQueryConfigs = map[string]QueryTableConfig{
 		SoftDeleteColumn: "deleted_at",
 		DefaultSorts:     []SortClause{{Column: "created_at", Order: "DESC"}},
 		Fields: map[string]QueryField{
-			"action_id":    {Column: "action_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
-			"actionId":     {Column: "action_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
-			"resource_id":  {Column: "resource_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
-			"resourceId":   {Column: "resource_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
-			"name":         {Column: "name", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_LIKE)},
-			"request_type": {Column: "request_type", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
-			"requestType":  {Column: "request_type", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
+			"action_id":    {Column: "action_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
+			"actionId":     {Column: "action_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
+			"resource_id":  {Column: "resource_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
+			"resourceId":   {Column: "resource_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
+			"name":         {Column: "name", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_LIKE)},
+			"request_type": {Column: "request_type", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
+			"requestType":  {Column: "request_type", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
 		},
 	},
 	TableRoles: {
@@ -126,12 +126,12 @@ var tableQueryConfigs = map[string]QueryTableConfig{
 		SoftDeleteColumn: "deleted_at",
 		DefaultSorts:     []SortClause{{Column: "created_at", Order: "DESC"}},
 		Fields: map[string]QueryField{
-			"role_id":     {Column: "role_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
-			"roleId":      {Column: "role_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
-			"module_id":   {Column: "module_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
-			"moduleId":    {Column: "module_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
-			"name":        {Column: "name", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_LIKE)},
-			"description": {Column: "description", DataType: FieldDataTypeText, Sortable: false, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_LIKE)},
+			"role_id":     {Column: "role_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
+			"roleId":      {Column: "role_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
+			"module_id":   {Column: "module_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
+			"moduleId":    {Column: "module_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
+			"name":        {Column: "name", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_LIKE)},
+			"description": {Column: "description", DataType: FieldDataTypeText, Sortable: false, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_LIKE)},
 		},
 	},
 	TableUsers: {
@@ -140,12 +140,12 @@ var tableQueryConfigs = map[string]QueryTableConfig{
 		SoftDeleteColumn: "deleted_at",
 		DefaultSorts:     []SortClause{{Column: "created_at", Order: "DESC"}},
 		Fields: map[string]QueryField{
-			"user_id":   {Column: "user_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
-			"userId":    {Column: "user_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
-			"user_name": {Column: "user_name", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_LIKE)},
-			"userName":  {Column: "user_name", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_LIKE)},
-			"email":     {Column: "email", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_LIKE)},
-			"status":    {Column: "status", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basepb.FilterOperator_FILTER_OPERATOR_EQUAL, basepb.FilterOperator_FILTER_OPERATOR_IN)},
+			"user_id":   {Column: "user_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
+			"userId":    {Column: "user_id", DataType: FieldDataTypeUUID, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
+			"user_name": {Column: "user_name", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_LIKE)},
+			"userName":  {Column: "user_name", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_LIKE)},
+			"email":     {Column: "email", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_LIKE)},
+			"status":    {Column: "status", DataType: FieldDataTypeText, Sortable: true, AllowedOperators: ops(basev1.FilterOperator_FILTER_OPERATOR_EQUAL, basev1.FilterOperator_FILTER_OPERATOR_IN)},
 		},
 	},
 }

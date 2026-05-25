@@ -11,9 +11,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"go-api/internal/repository"
-	basepb "go-api/pkg/api/basepb"
 	"go-api/pkg/constants"
 	"go-api/pkg/utils"
+
+	basev1 "github.com/lamquangmanh/protobuf/gen/go/proto/base/v1"
+	errorv1 "github.com/lamquangmanh/protobuf/gen/go/proto/error/v1"
 )
 
 type ResourceService struct {
@@ -51,23 +53,23 @@ type UpdateResourceInput struct {
 type ListResourcesInput struct {
 	Limit   int32
 	Offset  int32
-	Sorts   []*basepb.Sort
-	Filters []*basepb.Filter
+	Sorts   []*basev1.Sort
+	Filters []*basev1.Filter
 }
 
-func (s *ResourceService) CreateResource(ctx context.Context, in CreateResourceInput) (*repository.Resource, []*basepb.ErrorMessage) {
+func (s *ResourceService) CreateResource(ctx context.Context, in CreateResourceInput) (*repository.Resource, []*errorv1.ErrorItem) {
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrResourceNameRequired)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrResourceNameRequired)}
 	}
 	mid, err := uuid.Parse(strings.TrimSpace(in.ModuleID))
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidResourceModuleID)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidResourceModuleID)}
 	}
 
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrBeginTransaction.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrBeginTransaction.Messagef(err.Error()))}
 	}
 	defer tx.Rollback(ctx)
 	q := s.q.WithTx(tx)
@@ -79,7 +81,7 @@ func (s *ResourceService) CreateResource(ctx context.Context, in CreateResourceI
 		UpdatedUserID: pgtype.Text{String: in.ActorUserID, Valid: strings.TrimSpace(in.ActorUserID) != ""},
 	})
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrCreateResourceInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrCreateResourceInternal.Messagef(err.Error()))}
 	}
 
 	for _, action := range in.Actions {
@@ -102,56 +104,56 @@ func (s *ResourceService) CreateResource(ctx context.Context, in CreateResourceI
 			CreatedUserID: pgtype.Text{String: in.ActorUserID, Valid: strings.TrimSpace(in.ActorUserID) != ""},
 			UpdatedUserID: pgtype.Text{String: in.ActorUserID, Valid: strings.TrimSpace(in.ActorUserID) != ""},
 		}); err != nil {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrCreateResourceActionInternal.Messagef(err.Error()))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrCreateResourceActionInternal.Messagef(err.Error()))}
 		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrCommitTransaction.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrCommitTransaction.Messagef(err.Error()))}
 	}
 	return item, nil
 }
 
-func (s *ResourceService) GetResource(ctx context.Context, id string) (*repository.Resource, []*basepb.ErrorMessage) {
+func (s *ResourceService) GetResource(ctx context.Context, id string) (*repository.Resource, []*errorv1.ErrorItem) {
 	id = strings.TrimSpace(id)
 	if id == "" {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrResourceIDRequired)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrResourceIDRequired)}
 	}
 	rid, err := uuid.Parse(id)
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidResourceIDFormat)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidResourceIDFormat)}
 	}
 	item, err := s.q.GetResource(ctx, rid)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrResourceNotFound.Messagef(id))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrResourceNotFound.Messagef(id))}
 		}
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrGetResourceInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrGetResourceInternal.Messagef(err.Error()))}
 	}
 	return item, nil
 }
 
-func (s *ResourceService) UpdateResource(ctx context.Context, in UpdateResourceInput) (*repository.Resource, []*basepb.ErrorMessage) {
+func (s *ResourceService) UpdateResource(ctx context.Context, in UpdateResourceInput) (*repository.Resource, []*errorv1.ErrorItem) {
 	in.ID = strings.TrimSpace(in.ID)
 	if in.ID == "" {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrResourceIDRequired)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrResourceIDRequired)}
 	}
 	rid, err := uuid.Parse(in.ID)
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidResourceIDFormat)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidResourceIDFormat)}
 	}
 	mid, err := uuid.Parse(strings.TrimSpace(in.ModuleID))
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidResourceModuleID)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidResourceModuleID)}
 	}
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrResourceNameRequired)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrResourceNameRequired)}
 	}
 
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrBeginTransaction.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrBeginTransaction.Messagef(err.Error()))}
 	}
 	defer tx.Rollback(ctx)
 	q := s.q.WithTx(tx)
@@ -164,21 +166,21 @@ func (s *ResourceService) UpdateResource(ctx context.Context, in UpdateResourceI
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrResourceNotFound.Messagef(in.ID))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrResourceNotFound.Messagef(in.ID))}
 		}
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrUpdateResourceInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrUpdateResourceInternal.Messagef(err.Error()))}
 	}
 
 	oldActions, err := q.ListActionsByResource(ctx, repository.ListActionsByResourceParams{ResourceID: rid, Limit: 10000, Offset: 0})
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrListOldActionsInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrListOldActionsInternal.Messagef(err.Error()))}
 	}
 	for _, oldAction := range oldActions {
 		if _, err := q.DeleteAction(ctx, repository.DeleteActionParams{
 			ActionID:      oldAction.ActionID,
 			DeletedUserID: pgtype.Text{String: in.ActorUserID, Valid: strings.TrimSpace(in.ActorUserID) != ""},
 		}); err != nil {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrDeleteOldActionInternal.Messagef(err.Error()))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrDeleteOldActionInternal.Messagef(err.Error()))}
 		}
 	}
 
@@ -202,33 +204,33 @@ func (s *ResourceService) UpdateResource(ctx context.Context, in UpdateResourceI
 			CreatedUserID: pgtype.Text{String: in.ActorUserID, Valid: strings.TrimSpace(in.ActorUserID) != ""},
 			UpdatedUserID: pgtype.Text{String: in.ActorUserID, Valid: strings.TrimSpace(in.ActorUserID) != ""},
 		}); err != nil {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInsertActionInternal.Messagef(err.Error()))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInsertActionInternal.Messagef(err.Error()))}
 		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrCommitTransaction.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrCommitTransaction.Messagef(err.Error()))}
 	}
 	return item, nil
 }
 
-func (s *ResourceService) DeleteResource(ctx context.Context, id string, actorUserID string) []*basepb.ErrorMessage {
+func (s *ResourceService) DeleteResource(ctx context.Context, id string, actorUserID string) []*errorv1.ErrorItem {
 	id = strings.TrimSpace(id)
 	if id == "" {
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrResourceIDRequired)}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrResourceIDRequired)}
 	}
 	rid, err := uuid.Parse(id)
 	if err != nil {
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidResourceIDFormat)}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidResourceIDFormat)}
 	}
 	if _, err := s.q.DeleteResource(ctx, repository.DeleteResourceParams{
 		ResourceID:    rid,
 		DeletedUserID: pgtype.Text{String: actorUserID, Valid: strings.TrimSpace(actorUserID) != ""},
 	}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrResourceNotFound.Messagef(id))}
+			return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrResourceNotFound.Messagef(id))}
 		}
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrDeleteResourceInternal.Messagef(err.Error()))}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrDeleteResourceInternal.Messagef(err.Error()))}
 	}
 	return nil
 }

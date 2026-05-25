@@ -109,7 +109,7 @@ proto-tools:
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
 proto:
-	PATH="$(PATH):$(shell go env GOPATH)/bin" protoc -I .. --go_out=. --go_opt=module=go-api --go-grpc_out=. --go-grpc_opt=module=go-api $(shell find proto -name "*.proto" | sed 's#^#go-api/#')
+	PATH="$(PATH):$(shell go env GOPATH)/bin" protoc -I . --go_out=. --go_opt=module=go-api --go-grpc_out=. --go-grpc_opt=module=go-api $(shell find proto -name "*.proto")
 
 tidy:
 	go mod tidy

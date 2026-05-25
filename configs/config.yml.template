@@ -11,3 +11,11 @@ database:
   password: postgres
   name: go_api
   ssl_mode: disable
+
+logger:
+  level: info
+  format: json
+
+jwt:
+  secret: secret
+  expiry_seconds: 86400 # seconds

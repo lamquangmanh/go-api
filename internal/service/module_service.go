@@ -5,9 +5,11 @@ import (
 	"errors"
 	"strings"
 
-	basepb "go-api/pkg/api/basepb"
 	"go-api/pkg/constants"
 	"go-api/pkg/utils"
+
+	basev1 "github.com/lamquangmanh/protobuf/gen/go/proto/base/v1"
+	errorv1 "github.com/lamquangmanh/protobuf/gen/go/proto/error/v1"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -47,8 +49,8 @@ type UpdateModuleInput struct {
 type ListModulesInput struct {
 	Limit   int32
 	Offset  int32
-	Sorts   []*basepb.Sort
-	Filters []*basepb.Filter
+	Sorts   []*basev1.Sort
+	Filters []*basev1.Filter
 }
 
 func parseOptionalUUID(v string) (pgtype.UUID, error) {
@@ -64,14 +66,14 @@ func parseOptionalUUID(v string) (pgtype.UUID, error) {
 }
 
 // CreateModule validates and creates a module.
-func (s *ModuleService) CreateModule(ctx context.Context, in CreateModuleInput) (*repository.Module, []*basepb.ErrorMessage) {
+func (s *ModuleService) CreateModule(ctx context.Context, in CreateModuleInput) (*repository.Module, []*errorv1.ErrorItem) {
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrModuleNameRequired)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrModuleNameRequired)}
 	}
 	productID, err := parseOptionalUUID(in.ProductID)
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidModuleProductID)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidModuleProductID)}
 	}
 	description := strings.TrimSpace(in.Description)
 	icon := strings.TrimSpace(in.Icon)
@@ -86,48 +88,48 @@ func (s *ModuleService) CreateModule(ctx context.Context, in CreateModuleInput) 
 		UpdatedUserID: pgtype.Text{String: in.ActorUserID, Valid: strings.TrimSpace(in.ActorUserID) != ""},
 	})
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrCreateModuleInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrCreateModuleInternal.Messagef(err.Error()))}
 	}
 	return item, nil
 }
 
 // GetModule returns a module by ID.
-func (s *ModuleService) GetModule(ctx context.Context, id string) (*repository.Module, []*basepb.ErrorMessage) {
+func (s *ModuleService) GetModule(ctx context.Context, id string) (*repository.Module, []*errorv1.ErrorItem) {
 	id = strings.TrimSpace(id)
 	if id == "" {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrModuleIDRequired)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrModuleIDRequired)}
 	}
 	mid, err := uuid.Parse(id)
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidModuleIDFormat)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidModuleIDFormat)}
 	}
 	item, err := s.q.GetModule(ctx, mid)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrModuleNotFound.Messagef(id))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrModuleNotFound.Messagef(id))}
 		}
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrGetModuleInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrGetModuleInternal.Messagef(err.Error()))}
 	}
 	return item, nil
 }
 
 // UpdateModule validates input and updates a module.
-func (s *ModuleService) UpdateModule(ctx context.Context, in UpdateModuleInput) (*repository.Module, []*basepb.ErrorMessage) {
+func (s *ModuleService) UpdateModule(ctx context.Context, in UpdateModuleInput) (*repository.Module, []*errorv1.ErrorItem) {
 	in.ID = strings.TrimSpace(in.ID)
 	if in.ID == "" {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrModuleIDRequired)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrModuleIDRequired)}
 	}
 	mid, err := uuid.Parse(in.ID)
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidModuleIDFormat)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidModuleIDFormat)}
 	}
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrModuleNameRequired)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrModuleNameRequired)}
 	}
 	productID, err := parseOptionalUUID(in.ProductID)
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidModuleProductID)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidModuleProductID)}
 	}
 	description := strings.TrimSpace(in.Description)
 	icon := strings.TrimSpace(in.Icon)
@@ -143,31 +145,31 @@ func (s *ModuleService) UpdateModule(ctx context.Context, in UpdateModuleInput) 
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrModuleNotFound.Messagef(in.ID))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrModuleNotFound.Messagef(in.ID))}
 		}
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrUpdateModuleInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrUpdateModuleInternal.Messagef(err.Error()))}
 	}
 	return item, nil
 }
 
 // DeleteModule performs soft-delete for a module.
-func (s *ModuleService) DeleteModule(ctx context.Context, id string, actorUserID string) []*basepb.ErrorMessage {
+func (s *ModuleService) DeleteModule(ctx context.Context, id string, actorUserID string) []*errorv1.ErrorItem {
 	id = strings.TrimSpace(id)
 	if id == "" {
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrModuleIDRequired)}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrModuleIDRequired)}
 	}
 	mid, err := uuid.Parse(id)
 	if err != nil {
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidModuleIDFormat)}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidModuleIDFormat)}
 	}
 	if _, err := s.q.DeleteModule(ctx, repository.DeleteModuleParams{
 		ModuleID:      mid,
 		DeletedUserID: pgtype.Text{String: actorUserID, Valid: strings.TrimSpace(actorUserID) != ""},
 	}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrModuleNotFound.Messagef(id))}
+			return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrModuleNotFound.Messagef(id))}
 		}
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrDeleteModuleInternal.Messagef(err.Error()))}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrDeleteModuleInternal.Messagef(err.Error()))}
 	}
 	return nil
 }

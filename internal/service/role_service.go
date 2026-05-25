@@ -10,9 +10,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"go-api/internal/repository"
-	basepb "go-api/pkg/api/basepb"
 	"go-api/pkg/constants"
 	"go-api/pkg/utils"
+
+	basev1 "github.com/lamquangmanh/protobuf/gen/go/proto/base/v1"
+	errorv1 "github.com/lamquangmanh/protobuf/gen/go/proto/error/v1"
 )
 
 // RoleService provides business logic for roles.
@@ -42,30 +44,30 @@ type UpdateRoleInput struct {
 type ListRolesInput struct {
 	Limit   int32
 	Offset  int32
-	Sorts   []*basepb.Sort
-	Filters []*basepb.Filter
+	Sorts   []*basev1.Sort
+	Filters []*basev1.Filter
 }
 
-func (s *RoleService) CreateRole(ctx context.Context, in CreateRoleInput) (*repository.Role, []*basepb.ErrorMessage) {
+func (s *RoleService) CreateRole(ctx context.Context, in CreateRoleInput) (*repository.Role, []*errorv1.ErrorItem) {
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrRoleNameRequired)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrRoleNameRequired)}
 	}
 	if !utils.ValidateRoleName(name) {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrRoleNameInvalid)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrRoleNameInvalid)}
 	}
 
 	if existing, err := s.q.GetRoleByName(ctx, name); err == nil && existing != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrRoleNameAlreadyExists)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrRoleNameAlreadyExists)}
 	} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrGetRoleInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrGetRoleInternal.Messagef(err.Error()))}
 	}
 
 	moduleID := uuid.Nil
 	if strings.TrimSpace(in.ModuleID) != "" {
 		parsedModuleID, err := uuid.Parse(strings.TrimSpace(in.ModuleID))
 		if err != nil {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidRoleIDFormat)}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidRoleIDFormat)}
 		}
 		moduleID = parsedModuleID
 	}
@@ -78,33 +80,33 @@ func (s *RoleService) CreateRole(ctx context.Context, in CreateRoleInput) (*repo
 		UpdatedUserID: pgtype.Text{String: in.ActorUserID, Valid: strings.TrimSpace(in.ActorUserID) != ""},
 	})
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrCreateRoleInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrCreateRoleInternal.Messagef(err.Error()))}
 	}
 	return role, nil
 }
 
-func (s *RoleService) GetRole(ctx context.Context, id string) (*repository.Role, []*basepb.ErrorMessage) {
+func (s *RoleService) GetRole(ctx context.Context, id string) (*repository.Role, []*errorv1.ErrorItem) {
 	rid, err := uuid.Parse(strings.TrimSpace(id))
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidRoleIDFormat)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidRoleIDFormat)}
 	}
 	r, err := s.q.GetRole(ctx, rid)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrRoleNotFound.Messagef(id))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrRoleNotFound.Messagef(id))}
 		}
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrGetRoleInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrGetRoleInternal.Messagef(err.Error()))}
 	}
 	return r, nil
 }
 
-func (s *RoleService) UpdateRole(ctx context.Context, in UpdateRoleInput) (*repository.Role, []*basepb.ErrorMessage) {
+func (s *RoleService) UpdateRole(ctx context.Context, in UpdateRoleInput) (*repository.Role, []*errorv1.ErrorItem) {
 	if strings.TrimSpace(in.ID) == "" {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrRoleIDRequired)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrRoleIDRequired)}
 	}
 	rid, err := uuid.Parse(strings.TrimSpace(in.ID))
 	if err != nil {
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidRoleIDFormat)}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidRoleIDFormat)}
 	}
 
 	name := strings.TrimSpace(in.Name)
@@ -113,19 +115,19 @@ func (s *RoleService) UpdateRole(ctx context.Context, in UpdateRoleInput) (*repo
 	if strings.TrimSpace(in.ModuleID) != "" {
 		parsedModuleID, err := uuid.Parse(strings.TrimSpace(in.ModuleID))
 		if err != nil {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidRoleIDFormat)}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidRoleIDFormat)}
 		}
 		moduleID = parsedModuleID
 	}
 
 	if name != "" {
 		if !utils.ValidateRoleName(name) {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrRoleNameInvalid)}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrRoleNameInvalid)}
 		}
 		if existing, err := s.q.GetRoleByName(ctx, name); err == nil && existing.RoleID != rid {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrRoleNameAlreadyExists)}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrRoleNameAlreadyExists)}
 		} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrGetRoleInternal.Messagef(err.Error()))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrGetRoleInternal.Messagef(err.Error()))}
 		}
 	}
 
@@ -138,29 +140,29 @@ func (s *RoleService) UpdateRole(ctx context.Context, in UpdateRoleInput) (*repo
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrRoleNotFound.Messagef(in.ID))}
+			return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrRoleNotFound.Messagef(in.ID))}
 		}
-		return nil, []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrUpdateRoleInternal.Messagef(err.Error()))}
+		return nil, []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrUpdateRoleInternal.Messagef(err.Error()))}
 	}
 	return role, nil
 }
 
-func (s *RoleService) DeleteRole(ctx context.Context, id string, actorUserID string) []*basepb.ErrorMessage {
+func (s *RoleService) DeleteRole(ctx context.Context, id string, actorUserID string) []*errorv1.ErrorItem {
 	rid, err := uuid.Parse(strings.TrimSpace(id))
 	if err != nil {
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrInvalidRoleIDFormat)}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrInvalidRoleIDFormat)}
 	}
 	if _, err := s.q.GetRole(ctx, rid); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrRoleNotFound.Messagef(id))}
+			return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrRoleNotFound.Messagef(id))}
 		}
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrGetRoleInternal.Messagef(err.Error()))}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrGetRoleInternal.Messagef(err.Error()))}
 	}
 	if _, err := s.q.DeleteRole(ctx, repository.DeleteRoleParams{
 		RoleID:        rid,
 		DeletedUserID: pgtype.Text{String: actorUserID, Valid: strings.TrimSpace(actorUserID) != ""},
 	}); err != nil {
-		return []*basepb.ErrorMessage{utils.ErrMsg(constants.ErrDeleteRoleInternal.Messagef(err.Error()))}
+		return []*errorv1.ErrorItem{utils.ErrMsg(constants.ErrDeleteRoleInternal.Messagef(err.Error()))}
 	}
 	return nil
 }
