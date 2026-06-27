@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -106,6 +107,8 @@ func (h *ProductHandler) GetProducts(ctx context.Context, req *productv1.GetProd
 
 	filters := make([]*basev1.Filter, 0, len(req.GetFilters()))
 	filters = append(filters, req.GetFilters()...)
+	logger.Info("GetProducts request: %d", req.GetFilters())
+	logger.Info("Received GetProducts request: limit=%d, page=%d, offset=%d, sorts=%v, filters=%v", limit, page, offset, sorts, filters)
 
 	items, total, appliedLimit, appliedOffset, err := h.productService.ListProducts(ctx, productsvc.ListProductsInput{
 		Limit:   limit,
@@ -124,8 +127,9 @@ func (h *ProductHandler) GetProducts(ctx context.Context, req *productv1.GetProd
 	if appliedLimit <= 0 {
 		totalPages = 0
 	}
+	logger.Info("ListProducts: total=%d, limit=%d, offset=%d, totalPages=%d, returnedItems=%d", total, appliedLimit, appliedOffset, totalPages, len(data))
 
-	return &productv1.GetProductsResponse{
+	response := &productv1.GetProductsResponse{
 		Data: data,
 		Pagination: &basev1.PaginationResponse{
 			Page:       (appliedOffset / appliedLimit) + 1,
@@ -134,7 +138,9 @@ func (h *ProductHandler) GetProducts(ctx context.Context, req *productv1.GetProd
 			TotalPages: totalPages,
 			ItemCount:  int32(len(data)),
 		},
-	}, nil
+	}
+	logger.Info(fmt.Sprintf("GetProducts response: %+v", response))
+	return response, nil
 }
 
 // CreateProduct validates payload and creates a new product.

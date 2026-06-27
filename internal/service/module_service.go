@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"go-api/pkg/constants"
+	"go-api/pkg/logger"
 	"go-api/pkg/utils"
 
 	basev1 "github.com/lamquangmanh/protobuf/gen/go/proto/base/v1"
@@ -187,18 +188,24 @@ func (s *ModuleService) ListModules(ctx context.Context, in ListModulesInput) ([
 
 	cfg, ok := utils.GetTableQueryConfig(utils.TableModules)
 	if !ok {
+		logger.Error("cfg: cfg=%v", cfg)
 		return nil, 0, 0, 0, constants.ErrMissingModulesQueryConfig.Status()
 	}
 	sorts, err := utils.NormalizeSorts(in.Sorts, cfg, 5)
 	if err != nil {
+		logger.Error("sorts: sorts=%v, err=%v", sorts, err)
 		return nil, 0, 0, 0, constants.ErrInvalidModuleSort.Statusf(err)
 	}
 	filters, err := utils.NormalizeFilters(in.Filters, cfg, 10)
 	if err != nil {
+		logger.Error("Filters: filters=%v, err=%v", filters, err)
 		return nil, 0, 0, 0, constants.ErrInvalidModuleFilter.Statusf(err)
 	}
-
+	logger.Info("Before run query")
 	listSQL, listArgs, countSQL, countArgs := utils.BuildListAndCountQueries(cfg, sorts, filters, limit, offset)
+	logger.Info("ListModules: listSQL=%s, listArgs=%v, countSQL=%s, countArgs=%v",
+		listSQL, listArgs, countSQL, countArgs,
+	)
 	items, total, err := s.q.ListModulesByDynamicQuery(ctx, repository.DynamicModuleListParams{
 		ListSQL:   listSQL,
 		ListArgs:  listArgs,

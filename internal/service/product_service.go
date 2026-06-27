@@ -213,8 +213,9 @@ func (s *ProductService) ListProducts(ctx context.Context, in ListProductsInput)
 		return nil, 0, 0, 0, constants.ErrInvalidProductFilter.Statusf(err)
 	}
 
+	// logger.Info("Executing filters: %s", filters)
 	listSQL, listArgs, countSQL, countArgs := utils.BuildListAndCountQueries(cfg, sorts, filters, limit, offset)
-
+	// logger.Info("Executing dynamic product list query: %s", listSQL)
 	items, total, err := s.q.ListProductsByDynamicQuery(ctx, repository.DynamicProductListParams{
 		ListSQL:   listSQL,
 		ListArgs:  listArgs,

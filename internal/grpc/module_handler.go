@@ -114,7 +114,9 @@ func (h *ModuleHandler) GetModules(ctx context.Context, req *modulev1.GetModules
 	sorts = append(sorts, req.GetSorts()...)
 	filters := make([]*basev1.Filter, 0, len(req.GetFilters()))
 	filters = append(filters, req.GetFilters()...)
-
+	logger.Info("filters: filters=%d",
+		filters,
+	)
 	items, total, appliedLimit, appliedOffset, err := h.moduleService.ListModules(ctx, modulesvc.ListModulesInput{
 		Limit:   limit,
 		Offset:  offset,
@@ -122,6 +124,9 @@ func (h *ModuleHandler) GetModules(ctx context.Context, req *modulev1.GetModules
 		Filters: filters,
 	})
 	if err != nil {
+		logger.Error("error: ",
+			err,
+		)
 		return &modulev1.GetModulesResponse{Data: nil, Pagination: &basev1.PaginationResponse{}}, nil
 	}
 	data := make([]*modulev1.Module, 0, len(items))
@@ -132,6 +137,10 @@ func (h *ModuleHandler) GetModules(ctx context.Context, req *modulev1.GetModules
 	if appliedLimit <= 0 {
 		totalPages = 0
 	}
+
+	logger.Info("GetModules: total=%d, appliedLimit=%d, appliedOffset=%d, totalPages=%d, returnedItems=%d",
+		total, appliedLimit, appliedOffset, totalPages, len(data),
+	)
 
 	return &modulev1.GetModulesResponse{
 		Data: data,
